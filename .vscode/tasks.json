@@ -1,0 +1,13 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Generate compile_commands.json",
+            "type": "shell",
+            "command": "cmake -B build-compdb -G Ninja -DCMAKE_BUILD_TYPE=Debug -DNIVE_BUILD_TESTS=OFF -DCMAKE_C_COMPILER=cl -DCMAKE_CXX_COMPILER=cl && Copy-Item build-compdb/compile_commands.json -Destination . -Force",
+            "group": "build",
+            "problemMatcher": [],
+            "detail": "Configure with Ninja generator to produce compile_commands.json"
+        }
+    ]
+}

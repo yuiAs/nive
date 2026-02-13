@@ -1,0 +1,12 @@
+[submodule "externals/bit7z"]
+	path = externals/bit7z
+	url = https://github.com/rikyoz/bit7z.git
+[submodule "externals/spdlog"]
+	path = externals/spdlog
+	url = https://github.com/gabime/spdlog.git
+[submodule "externals/zstd"]
+	path = externals/zstd
+	url = https://github.com/facebook/zstd.git
+[submodule "externals/tomlplusplus"]
+	path = externals/tomlplusplus
+	url = https://github.com/marzer/tomlplusplus.git

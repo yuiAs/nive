@@ -1,0 +1,160 @@
+---
+# Based on Google C++ Style Guide with project-specific modifications
+# See CLAUDE.md for naming conventions (clang-format cannot enforce naming)
+
+BasedOnStyle: Google
+Language: Cpp
+Standard: Latest
+
+# Indentation
+IndentWidth: 4
+TabWidth: 4
+UseTab: Never
+IndentCaseLabels: false
+IndentPPDirectives: BeforeHash
+IndentExternBlock: NoIndent
+NamespaceIndentation: None
+
+# Line width
+ColumnLimit: 100
+
+# Alignment
+AlignAfterOpenBracket: Align
+AlignArrayOfStructures: Right
+AlignConsecutiveAssignments: None
+AlignConsecutiveDeclarations: None
+AlignConsecutiveMacros: None
+AlignEscapedNewlines: Right
+AlignOperands: Align
+AlignTrailingComments: true
+
+# Braces
+BreakBeforeBraces: Attach
+BraceWrapping:
+  AfterCaseLabel: false
+  AfterClass: false
+  AfterControlStatement: Never
+  AfterEnum: false
+  AfterFunction: false
+  AfterNamespace: false
+  AfterStruct: false
+  AfterUnion: false
+  AfterExternBlock: false
+  BeforeCatch: false
+  BeforeElse: false
+  BeforeLambdaBody: false
+  BeforeWhile: false
+  IndentBraces: false
+  SplitEmptyFunction: false
+  SplitEmptyRecord: false
+  SplitEmptyNamespace: false
+
+# Short blocks
+AllowShortBlocksOnASingleLine: Empty
+AllowShortCaseLabelsOnASingleLine: false
+AllowShortEnumsOnASingleLine: false
+AllowShortFunctionsOnASingleLine: InlineOnly
+AllowShortIfStatementsOnASingleLine: Never
+AllowShortLambdasOnASingleLine: All
+AllowShortLoopsOnASingleLine: false
+
+# Templates and generics
+AlwaysBreakTemplateDeclarations: Yes
+SpaceAfterTemplateKeyword: true
+
+# Constructor initializers
+BreakConstructorInitializers: BeforeColon
+BreakInheritanceList: BeforeColon
+PackConstructorInitializers: BinPack
+
+# Arguments and parameters
+AllowAllArgumentsOnNextLine: true
+AllowAllParametersOfDeclarationOnNextLine: true
+BinPackArguments: true
+BinPackParameters: true
+
+# Includes
+IncludeBlocks: Regroup
+IncludeCategories:
+  # Windows.h must come first (before other Windows headers)
+  - Regex: '^<Windows\.h>'
+    Priority: 0
+  # Other Windows headers
+  - Regex: '^<(win|com|shl|obj|ole|uxtheme|dwmapi|d2d1|dwrite|gdiplus)'
+    Priority: 1
+    CaseSensitive: false
+  # C++ standard library
+  - Regex: '^<[a-z_]+>'
+    Priority: 2
+  # C headers
+  - Regex: '^<.*\.h>'
+    Priority: 3
+  # Third-party libraries
+  - Regex: '^<(spdlog|toml|bit7z|sqlite|catch2)'
+    Priority: 4
+  # Project headers
+  - Regex: '^"'
+    Priority: 5
+SortIncludes: CaseSensitive
+SortUsingDeclarations: true
+
+# Pointers and references
+DerivePointerAlignment: false
+PointerAlignment: Left
+ReferenceAlignment: Left
+
+# Spaces
+SpaceAfterCStyleCast: false
+SpaceAfterLogicalNot: false
+SpaceBeforeAssignmentOperators: true
+SpaceBeforeCaseColon: false
+SpaceBeforeCpp11BracedList: false
+SpaceBeforeCtorInitializerColon: true
+SpaceBeforeInheritanceColon: true
+SpaceBeforeParens: ControlStatements
+SpaceBeforeRangeBasedForLoopColon: true
+SpaceBeforeSquareBrackets: false
+SpaceInEmptyBlock: false
+SpaceInEmptyParentheses: false
+SpacesBeforeTrailingComments: 2
+SpacesInAngles: Never
+SpacesInCStyleCastParentheses: false
+SpacesInConditionalStatement: false
+SpacesInContainerLiterals: false
+SpacesInLineCommentPrefix:
+  Minimum: 1
+  Maximum: -1
+SpacesInParentheses: false
+SpacesInSquareBrackets: false
+
+# Other
+Cpp11BracedListStyle: true
+EmptyLineAfterAccessModifier: Never
+EmptyLineBeforeAccessModifier: LogicalBlock
+FixNamespaceComments: true
+InsertTrailingCommas: None
+MaxEmptyLinesToKeep: 1
+ReflowComments: true
+SeparateDefinitionBlocks: Leave
+
+# Access modifiers
+AccessModifierOffset: -4
+
+# Lambda
+LambdaBodyIndentation: Signature
+
+# Macros
+MacroBlockBegin: ''
+MacroBlockEnd: ''
+
+# Penalties (for line breaking decisions)
+PenaltyBreakAssignment: 2
+PenaltyBreakBeforeFirstCallParameter: 19
+PenaltyBreakComment: 300
+PenaltyBreakFirstLessLess: 120
+PenaltyBreakOpenParenthesis: 0
+PenaltyBreakString: 1000
+PenaltyExcessCharacter: 1000000
+PenaltyIndentedWhitespace: 0
+PenaltyReturnTypeOnItsOwnLine: 60
+...

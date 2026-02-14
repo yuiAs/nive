@@ -91,19 +91,19 @@ void FileListView::setSort(FileListColumn column, bool ascending) {
     // TODO: Update header arrow indicator
 }
 
-std::array<int, 4> FileListView::getColumnWidths() const {
-    std::array<int, 4> widths = {0, 0, 0, 0};
+std::array<int, 5> FileListView::getColumnWidths() const {
+    std::array<int, 5> widths = {0, 0, 0, 0, 0};
     if (hwnd_) {
-        for (int i = 0; i < 4; ++i) {
+        for (int i = 0; i < 5; ++i) {
             widths[i] = ListView_GetColumnWidth(hwnd_, i);
         }
     }
     return widths;
 }
 
-void FileListView::setColumnWidths(const std::array<int, 4>& widths) {
+void FileListView::setColumnWidths(const std::array<int, 5>& widths) {
     if (hwnd_) {
-        for (int i = 0; i < 4; ++i) {
+        for (int i = 0; i < 5; ++i) {
             if (widths[i] > 0) {
                 ListView_SetColumnWidth(hwnd_, i, widths[i]);
             }
@@ -132,7 +132,7 @@ void FileListView::setResolution(const std::filesystem::path& path, uint32_t wid
     for (size_t i = 0; i < items_.size(); ++i) {
         if (items_[i].sourceIdentifier() == key) {
             auto text = formatResolution(width, height);
-            ListView_SetItemText(hwnd_, static_cast<int>(i), 3,
+            ListView_SetItemText(hwnd_, static_cast<int>(i), 4,
                                  const_cast<LPWSTR>(text.c_str()));
             return;
         }
@@ -221,11 +221,17 @@ void FileListView::createColumns() {
     lvc.iSubItem = 2;
     ListView_InsertColumn(hwnd_, 2, &lvc);
 
+    // Path column (archive internal directory)
+    lvc.pszText = const_cast<LPWSTR>(L"Path");
+    lvc.cx = 150;
+    lvc.iSubItem = 3;
+    ListView_InsertColumn(hwnd_, 3, &lvc);
+
     // Resolution column
     lvc.pszText = const_cast<LPWSTR>(L"Resolution");
     lvc.cx = 100;
-    lvc.iSubItem = 3;
-    ListView_InsertColumn(hwnd_, 3, &lvc);
+    lvc.iSubItem = 4;
+    ListView_InsertColumn(hwnd_, 4, &lvc);
 }
 
 void FileListView::populateItems() {
@@ -254,8 +260,12 @@ void FileListView::populateItems() {
         auto date_str = formatDate(item.modified_time);
         ListView_SetItemText(hwnd_, static_cast<int>(i), 2, const_cast<LPWSTR>(date_str.c_str()));
 
+        // Path (archive internal directory)
+        auto path_str = formatArchivePath(item);
+        ListView_SetItemText(hwnd_, static_cast<int>(i), 3, const_cast<LPWSTR>(path_str.c_str()));
+
         // Resolution (not available in FileMetadata, show "-" for now)
-        ListView_SetItemText(hwnd_, static_cast<int>(i), 3, const_cast<LPWSTR>(L"-"));
+        ListView_SetItemText(hwnd_, static_cast<int>(i), 4, const_cast<LPWSTR>(L"-"));
     }
 
     // Re-enable redraw
@@ -279,8 +289,12 @@ void FileListView::updateItem(size_t index) {
     auto date_str = formatDate(item.modified_time);
     ListView_SetItemText(hwnd_, i, 2, const_cast<LPWSTR>(date_str.c_str()));
 
+    // Path (archive internal directory)
+    auto path_str = formatArchivePath(item);
+    ListView_SetItemText(hwnd_, i, 3, const_cast<LPWSTR>(path_str.c_str()));
+
     // Resolution (not available in FileMetadata)
-    ListView_SetItemText(hwnd_, i, 3, const_cast<LPWSTR>(L"-"));
+    ListView_SetItemText(hwnd_, i, 4, const_cast<LPWSTR>(L"-"));
 }
 
 std::wstring FileListView::formatSize(uint64_t size) {
@@ -308,6 +322,15 @@ std::wstring FileListView::formatDate(const std::chrono::system_clock::time_poin
 
 std::wstring FileListView::formatResolution(uint32_t width, uint32_t height) {
     return std::format(L"{}x{}", width, height);
+}
+
+std::wstring FileListView::formatArchivePath(const fs::FileMetadata& item) {
+    if (!item.is_in_archive()) {
+        return L"-";
+    }
+    auto parent = std::filesystem::path(item.virtual_path->internal_path()).parent_path();
+    auto result = parent.wstring();
+    return result.empty() ? L"-" : result;
 }
 
 }  // namespace nive::ui

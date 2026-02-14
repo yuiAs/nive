@@ -138,7 +138,8 @@ void MainWindow::saveState(config::Settings& settings) const {
         settings.file_list_columns.name = static_cast<float>(widths[0]);
         settings.file_list_columns.size = static_cast<float>(widths[1]);
         settings.file_list_columns.date = static_cast<float>(widths[2]);
-        settings.file_list_columns.dimensions = static_cast<float>(widths[3]);
+        settings.file_list_columns.path = static_cast<float>(widths[3]);
+        settings.file_list_columns.dimensions = static_cast<float>(widths[4]);
     }
 }
 
@@ -533,9 +534,10 @@ void MainWindow::createChildControls() {
     // Restore column widths from settings
     {
         const auto& cols = App::instance().settings().file_list_columns;
-        std::array<int, 4> widths = {static_cast<int>(cols.name), static_cast<int>(cols.size),
-                                     static_cast<int>(cols.date),
-                                     static_cast<int>(cols.dimensions)};
+        std::array<int, 5> widths = {
+            static_cast<int>(cols.name), static_cast<int>(cols.size),
+            static_cast<int>(cols.date), static_cast<int>(cols.path),
+            static_cast<int>(cols.dimensions)};
         file_list_->setColumnWidths(widths);
     }
 

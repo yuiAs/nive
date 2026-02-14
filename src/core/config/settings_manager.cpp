@@ -147,6 +147,7 @@ Settings parse_settings(const toml::table& tbl) {
         settings.file_list_columns.date = static_cast<float>(get_or(*columns, "date", 120.0));
         settings.file_list_columns.dimensions =
             static_cast<float>(get_or(*columns, "dimensions", 100.0));
+        settings.file_list_columns.path = static_cast<float>(get_or(*columns, "path", 150.0));
     }
 
     // Viewer window state
@@ -259,6 +260,7 @@ toml::table serialize_settings(const Settings& settings) {
                    {      "size",       static_cast<double>(settings.file_list_columns.size)},
                    {      "date",       static_cast<double>(settings.file_list_columns.date)},
                    {"dimensions", static_cast<double>(settings.file_list_columns.dimensions)},
+                   {      "path",       static_cast<double>(settings.file_list_columns.path)},
     });
 
     // Viewer window state
@@ -439,6 +441,7 @@ std::expected<void, ConfigError> SettingsManager::saveTo(const Settings& setting
         file << "size = " << static_cast<int>(settings.file_list_columns.size) << "\n";
         file << "date = " << static_cast<int>(settings.file_list_columns.date) << "\n";
         file << "dimensions = " << static_cast<int>(settings.file_list_columns.dimensions) << "\n";
+        file << "path = " << static_cast<int>(settings.file_list_columns.path) << "\n";
         file << "\n";
 
         // Viewer window state

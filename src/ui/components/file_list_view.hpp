@@ -20,6 +20,7 @@ enum class FileListColumn {
     Name,
     Size,
     Date,
+    Path,
     Resolution,
 };
 
@@ -73,12 +74,12 @@ public:
     void setSort(FileListColumn column, bool ascending);
 
     /// @brief Get column widths
-    /// @return Array of column widths [Name, Size, Date, Resolution]
-    [[nodiscard]] std::array<int, 4> getColumnWidths() const;
+    /// @return Array of column widths [Name, Size, Date, Path, Resolution]
+    [[nodiscard]] std::array<int, 5> getColumnWidths() const;
 
     /// @brief Set column widths
-    /// @param widths Array of column widths [Name, Size, Date, Resolution]
-    void setColumnWidths(const std::array<int, 4>& widths);
+    /// @param widths Array of column widths [Name, Size, Date, Path, Resolution]
+    void setColumnWidths(const std::array<int, 5>& widths);
 
     /// @brief Set resolution for a file item
     /// @param path Source file path
@@ -120,6 +121,7 @@ private:
     static std::wstring formatSize(uint64_t size);
     static std::wstring formatDate(const std::chrono::system_clock::time_point& time);
     static std::wstring formatResolution(uint32_t width, uint32_t height);
+    static std::wstring formatArchivePath(const fs::FileMetadata& item);
 
     HWND hwnd_ = nullptr;
     HWND header_ = nullptr;

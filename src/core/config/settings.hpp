@@ -189,6 +189,7 @@ struct FileListColumnWidths {
     float size = 80.0f;
     float date = 120.0f;
     float dimensions = 100.0f;
+    float path = 150.0f;
 };
 
 /// @brief Window state for restoration

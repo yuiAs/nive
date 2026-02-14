@@ -6,6 +6,8 @@
 #include <chrono>
 #include <format>
 
+#include "core/i18n/i18n.hpp"
+
 namespace nive::ui {
 
 FileListView::FileListView() = default;
@@ -200,35 +202,36 @@ bool FileListView::handleNotify(NMHDR* nmhdr) {
 }
 
 void FileListView::createColumns() {
+    using i18n::tr;
     LVCOLUMNW lvc = {};
     lvc.mask = LVCF_TEXT | LVCF_WIDTH | LVCF_SUBITEM;
 
     // Name column
-    lvc.pszText = const_cast<LPWSTR>(L"Name");
+    lvc.pszText = const_cast<LPWSTR>(tr("filelist.column.name").c_str());
     lvc.cx = 250;
     lvc.iSubItem = 0;
     ListView_InsertColumn(hwnd_, 0, &lvc);
 
     // Size column
-    lvc.pszText = const_cast<LPWSTR>(L"Size");
+    lvc.pszText = const_cast<LPWSTR>(tr("filelist.column.size").c_str());
     lvc.cx = 80;
     lvc.iSubItem = 1;
     ListView_InsertColumn(hwnd_, 1, &lvc);
 
     // Date column
-    lvc.pszText = const_cast<LPWSTR>(L"Date");
+    lvc.pszText = const_cast<LPWSTR>(tr("filelist.column.date").c_str());
     lvc.cx = 130;
     lvc.iSubItem = 2;
     ListView_InsertColumn(hwnd_, 2, &lvc);
 
     // Path column (archive internal directory)
-    lvc.pszText = const_cast<LPWSTR>(L"Path");
+    lvc.pszText = const_cast<LPWSTR>(tr("filelist.column.path").c_str());
     lvc.cx = 150;
     lvc.iSubItem = 3;
     ListView_InsertColumn(hwnd_, 3, &lvc);
 
     // Resolution column
-    lvc.pszText = const_cast<LPWSTR>(L"Resolution");
+    lvc.pszText = const_cast<LPWSTR>(tr("filelist.column.resolution").c_str());
     lvc.cx = 100;
     lvc.iSubItem = 4;
     ListView_InsertColumn(hwnd_, 4, &lvc);
@@ -253,7 +256,9 @@ void FileListView::populateItems() {
         ListView_InsertItem(hwnd_, &lvi);
 
         // Size
-        auto size_str = item.is_directory() ? L"-" : formatSize(item.size_bytes);
+        auto size_str =
+            item.is_directory() ? std::wstring(i18n::tr("filelist.column.placeholder"))
+                                : formatSize(item.size_bytes);
         ListView_SetItemText(hwnd_, static_cast<int>(i), 1, const_cast<LPWSTR>(size_str.c_str()));
 
         // Date
@@ -264,8 +269,9 @@ void FileListView::populateItems() {
         auto path_str = formatArchivePath(item);
         ListView_SetItemText(hwnd_, static_cast<int>(i), 3, const_cast<LPWSTR>(path_str.c_str()));
 
-        // Resolution (not available in FileMetadata, show "-" for now)
-        ListView_SetItemText(hwnd_, static_cast<int>(i), 4, const_cast<LPWSTR>(L"-"));
+        // Resolution (not available in FileMetadata)
+        ListView_SetItemText(hwnd_, static_cast<int>(i), 4,
+                             const_cast<LPWSTR>(i18n::tr("filelist.column.placeholder").c_str()));
     }
 
     // Re-enable redraw
@@ -283,7 +289,9 @@ void FileListView::updateItem(size_t index) {
 
     ListView_SetItemText(hwnd_, i, 0, const_cast<LPWSTR>(item.name.c_str()));
 
-    auto size_str = item.is_directory() ? L"-" : formatSize(item.size_bytes);
+    auto size_str = item.is_directory()
+                        ? std::wstring(i18n::tr("filelist.column.placeholder"))
+                        : formatSize(item.size_bytes);
     ListView_SetItemText(hwnd_, i, 1, const_cast<LPWSTR>(size_str.c_str()));
 
     auto date_str = formatDate(item.modified_time);
@@ -294,7 +302,8 @@ void FileListView::updateItem(size_t index) {
     ListView_SetItemText(hwnd_, i, 3, const_cast<LPWSTR>(path_str.c_str()));
 
     // Resolution (not available in FileMetadata)
-    ListView_SetItemText(hwnd_, i, 4, const_cast<LPWSTR>(L"-"));
+    ListView_SetItemText(hwnd_, i, 4,
+                         const_cast<LPWSTR>(i18n::tr("filelist.column.placeholder").c_str()));
 }
 
 std::wstring FileListView::formatSize(uint64_t size) {
@@ -325,12 +334,13 @@ std::wstring FileListView::formatResolution(uint32_t width, uint32_t height) {
 }
 
 std::wstring FileListView::formatArchivePath(const fs::FileMetadata& item) {
+    const auto& placeholder = i18n::tr("filelist.column.placeholder");
     if (!item.is_in_archive()) {
-        return L"-";
+        return std::wstring(placeholder);
     }
     auto parent = std::filesystem::path(item.virtual_path->internal_path()).parent_path();
     auto result = parent.wstring();
-    return result.empty() ? L"-" : result;
+    return result.empty() ? std::wstring(placeholder) : result;
 }
 
 }  // namespace nive::ui

@@ -5,6 +5,7 @@
 
 #include <format>
 
+#include "core/i18n/i18n.hpp"
 #include "ui/d2d/core/d2d_factory.hpp"
 
 namespace nive::ui::d2d {
@@ -26,7 +27,7 @@ constexpr float kContentWidth = 320.0f;
 }  // namespace
 
 D2DDeleteConfirmDialog::D2DDeleteConfirmDialog() {
-    setTitle(L"Confirm Delete");
+    setTitle(i18n::tr("dialog.delete.title"));
     setInitialSize(Size{kContentWidth + kPadding * 2, 200.0f});
     setResizable(false);
 }
@@ -68,7 +69,7 @@ void D2DDeleteConfirmDialog::createComponents() {
     }
 
     // Warning icon label
-    auto icon = std::make_unique<D2DLabel>(L"\u26A0");
+    auto icon = std::make_unique<D2DLabel>(i18n::tr("dialog.delete.warning_icon"));
     icon->setFontSize(22.0f);
     icon->setTextColor(Color::fromRgb(0xE6A817));
     icon->setTextAlignment(TextAlignment::Center);
@@ -95,7 +96,7 @@ void D2DDeleteConfirmDialog::createComponents() {
     addChild(std::move(list));
 
     // Trash checkbox
-    auto trash = std::make_unique<D2DCheckBox>(L"Move to Trash instead of permanent delete");
+    auto trash = std::make_unique<D2DCheckBox>(i18n::tr("dialog.delete.use_trash"));
     trash->createResources(res);
     if (options_.default_to_trash) {
         trash->setChecked(true);
@@ -104,7 +105,7 @@ void D2DDeleteConfirmDialog::createComponents() {
     addChild(std::move(trash));
 
     // Delete button
-    auto del_btn = std::make_unique<D2DButton>(L"Delete");
+    auto del_btn = std::make_unique<D2DButton>(i18n::tr("dialog.delete.delete_button"));
     del_btn->setVariant(ButtonVariant::Primary);
     del_btn->createResources(res);
     del_btn->onClick([this]() {
@@ -119,7 +120,7 @@ void D2DDeleteConfirmDialog::createComponents() {
     addChild(std::move(del_btn));
 
     // Cancel button
-    auto cancel_btn = std::make_unique<D2DButton>(L"Cancel");
+    auto cancel_btn = std::make_unique<D2DButton>(i18n::tr("dialog.delete.cancel"));
     cancel_btn->createResources(res);
     cancel_btn->onClick([this]() {
         result_ = DeleteConfirmResult::Cancel;
@@ -213,13 +214,16 @@ void D2DDeleteConfirmDialog::resizeToFitContent() {
 
 std::wstring D2DDeleteConfirmDialog::formatMessage() const {
     if (!files_ || files_->empty()) {
-        return L"Are you sure you want to delete?";
+        return std::wstring(i18n::tr("dialog.delete.confirm_generic"));
     }
     if (files_->size() == 1) {
-        return std::format(L"Are you sure you want to delete '{}'?",
-                           (*files_)[0].filename().wstring());
+        auto name = (*files_)[0].filename().wstring();
+        return std::vformat(i18n::tr("dialog.delete.confirm_single"),
+                            std::make_wformat_args(name));
     }
-    return std::format(L"Are you sure you want to delete these {} files?", files_->size());
+    auto count = files_->size();
+    return std::vformat(i18n::tr("dialog.delete.confirm_multiple"),
+                        std::make_wformat_args(count));
 }
 
 DeleteConfirmResult showD2DDeleteConfirmDialog(HWND parent,

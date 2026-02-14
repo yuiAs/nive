@@ -294,6 +294,9 @@ struct Settings {
     // Last directory (for restoring previous session)
     std::filesystem::path last_directory;
 
+    // Language setting ("auto" = system detection, or explicit tag like "en", "ja")
+    std::string language = "auto";
+
     /// @brief Get default settings
     [[nodiscard]] static Settings defaults() { return Settings{}; }
 };

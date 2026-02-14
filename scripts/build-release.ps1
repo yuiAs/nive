@@ -110,6 +110,14 @@ function New-Package {
     # plugins directory
     New-Item -ItemType Directory -Path (Join-Path $stagingDir "plugins") -Force | Out-Null
 
+    # locales directory
+    $localesDir = Join-Path $ProjectRoot "locales"
+    if (Test-Path $localesDir) {
+        Copy-Item $localesDir -Destination (Join-Path $stagingDir "locales") -Recurse
+    } else {
+        Write-Host "[warn] locales directory not found at: $localesDir" -ForegroundColor Yellow
+    }
+
     # LICENSE
     Copy-Item (Join-Path $ProjectRoot "LICENSE") $stagingDir
 

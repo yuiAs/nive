@@ -1,0 +1,172 @@
+# nive English locale file
+
+# Main window menus
+[menu.file]
+label = "&File"
+refresh = "&Refresh\tF5"
+settings = "&Settings..."
+exit = "E&xit\tAlt+F4"
+
+[menu.view]
+label = "&View"
+thumbnails = "&Thumbnails"
+details = "&Details"
+
+[menu.view.sort_method]
+label = "Sort &Method"
+natural = "&Natural (file1, file2, file10)"
+lexicographic = "&Lexicographic (file1, file10, file2)"
+date_modified = "Date &Modified"
+date_created = "Date &Created"
+size = "&Size"
+
+[menu.view.sort_order]
+label = "Sort &Order"
+ascending = "&Ascending"
+descending = "&Descending"
+
+[menu.help]
+label = "&Help"
+d2d_test = "D2D &Test Dialog...\tCtrl+Shift+D"
+
+# Image viewer window
+[viewer]
+default_title = "Image Viewer - nive"
+title_format = "{} ({}x{}) {}% ({}/{})"
+
+[viewer.menu.file]
+label = "&File"
+exit = "E&xit\tEsc"
+
+[viewer.menu.view]
+label = "&View"
+display_mode = "&Display Mode"
+original = "&Original\t1"
+fit_to_window = "&Fit to Window"
+shrink_to_fit = "&Shrink to Fit\tF"
+zoom_in = "Zoom &In\tCtrl++"
+zoom_out = "Zoom &Out\tCtrl+-"
+reset_zoom = "&Reset Zoom\t0"
+
+# File list view
+[filelist.column]
+name = "Name"
+size = "Size"
+date = "Date"
+path = "Path"
+resolution = "Resolution"
+placeholder = "-"
+
+# Status bar
+[status]
+ready = "Ready"
+file_count = "{count, plural, one {# file} other {# files}}"
+thumbnail_count = "Thumbnails: {}"
+
+# Settings dialog
+[dialog.settings]
+title = "Settings"
+ok = "OK"
+cancel = "Cancel"
+
+[dialog.settings.tab]
+general = "General"
+thumbnails = "Thumbnails"
+cache = "Cache"
+sorting = "Sorting"
+network = "Network"
+
+[dialog.settings.general]
+startup_directory = "Startup Directory"
+home = "Home (Pictures)"
+last_opened = "Last opened directory"
+custom = "Custom:"
+browse = "..."
+select_startup_dir = "Select Startup Directory"
+language = "Language:"
+auto_system = "Auto (System)"
+
+[dialog.settings.thumbnails]
+stored_size = "Stored Size (64-2048):"
+display_size = "Display Size (32-512):"
+buffer_count = "Buffer Count (0-1000):"
+worker_threads = "Worker Threads (1-16):"
+
+[dialog.settings.cache]
+location = "Cache Location"
+appdata = "AppData (recommended)"
+portable = "Portable (exe folder)"
+custom = "Custom:"
+browse = "..."
+select_cache_dir = "Select Cache Directory"
+compression = "Compression (0=off, 1-19):"
+ok = "OK"
+cancel = "Cancel"
+retention_enabled = "Enable cache retention"
+retention_days = "Retention (days):"
+
+[dialog.settings.sorting]
+method = "Sort Method:"
+natural = "Natural (file1, file2, file10)"
+lexicographic = "Lexicographic (file1, file10, file2)"
+date_modified = "Date Modified"
+date_created = "Date Created"
+size = "Size"
+order = "Sort Order:"
+ascending = "Ascending"
+descending = "Descending"
+
+[dialog.settings.network]
+label = "Network share paths:"
+add = "Add..."
+remove = "Remove"
+select_share = "Select Network Share"
+
+[dialog.settings.validation]
+invalid_settings = "Invalid settings:\n"
+error_prefix = "- "
+title = "Validation Error"
+
+# Delete confirmation dialog
+[dialog.delete]
+title = "Confirm Delete"
+warning_icon = "\u26A0"
+use_trash = "Move to Trash instead of permanent delete"
+delete_button = "Delete"
+cancel = "Cancel"
+confirm_generic = "Are you sure you want to delete?"
+confirm_single = "Are you sure you want to delete '{}'?"
+confirm_multiple = "Are you sure you want to delete these {} files?"
+
+# File conflict dialog
+[dialog.conflict]
+title = "File Conflict"
+header = "A file with the same name already exists."
+identical = "These files appear to be identical."
+keep_newer = "Keep newer date"
+overwrite = "Overwrite"
+skip = "Skip"
+rename = "Rename:"
+auto_number = "Auto number"
+keep_larger = "Keep larger size"
+move_to_trash = "Move replaced file to Trash"
+skip_identical = "Skip identical files"
+ok = "OK"
+apply_all = "Apply to All"
+cancel = "Cancel"
+no_preview = "No preview"
+enter_filename = "Please enter a file name."
+invalid_filename = "The file name contains invalid characters."
+validation_error = "Validation Error"
+
+# File operation messages
+[file_operation]
+copy = "Copy"
+move = "Move"
+delete = "Delete"
+error_title = "File Operation Error"
+partial_success = "{} operation completed with errors.\n\n{} files processed successfully.\n{} files failed."
+all_failed = "{} operation failed.\n\n{} files could not be processed."
+failed_files_header = "\n\nFailed files:"
+failed_file_prefix = "\n- "
+more_files = "\n... and {} more"

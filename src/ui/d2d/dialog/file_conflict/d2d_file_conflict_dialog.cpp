@@ -7,6 +7,7 @@
 #include <format>
 
 #include "core/config/settings.hpp"
+#include "core/i18n/i18n.hpp"
 #include "core/fs/file_operations.hpp"
 #include "core/image/image_scaler.hpp"
 #include "core/image/wic_decoder.hpp"
@@ -77,7 +78,7 @@ std::unique_ptr<image::DecodedImage> loadThumbnailImage(const std::filesystem::p
 }  // namespace
 
 D2DFileConflictDialog::D2DFileConflictDialog() {
-    setTitle(L"File Conflict");
+    setTitle(i18n::tr("dialog.conflict.title"));
     setInitialSize(Size{kPadding * 2 + kThumbnailSize * 2 + kThumbnailGap, 480.0f});
     setResizable(false);
 }
@@ -170,7 +171,7 @@ void D2DFileConflictDialog::createComponents() {
     }
 
     // Header label
-    auto header = std::make_unique<D2DLabel>(L"A file with the same name already exists.");
+    auto header = std::make_unique<D2DLabel>(i18n::tr("dialog.conflict.header"));
     header->createResources(res);
     header_label_ = header.get();
     addChild(std::move(header));
@@ -192,7 +193,7 @@ void D2DFileConflictDialog::createComponents() {
     addChild(std::move(dest_info));
 
     // Identical label (may be hidden)
-    auto identical = std::make_unique<D2DLabel>(L"These files appear to be identical.");
+    auto identical = std::make_unique<D2DLabel>(i18n::tr("dialog.conflict.identical"));
     identical->setTextAlignment(TextAlignment::Center);
     identical->setTextColor(Color::fromRgb(0x888888));
     identical->createResources(res);
@@ -200,21 +201,21 @@ void D2DFileConflictDialog::createComponents() {
     addChild(std::move(identical));
 
     // Radio buttons - Left column
-    auto newer = std::make_unique<D2DRadioButton>(L"Keep newer date");
+    auto newer = std::make_unique<D2DRadioButton>(i18n::tr("dialog.conflict.keep_newer"));
     newer->setGroup(&action_radio_group_);
     newer->createResources(res);
     newer->onChange([this](bool) { custom_name_edit_->setEnabled(false); });
     action_newer_ = newer.get();
     addChild(std::move(newer));
 
-    auto overwrite = std::make_unique<D2DRadioButton>(L"Overwrite");
+    auto overwrite = std::make_unique<D2DRadioButton>(i18n::tr("dialog.conflict.overwrite"));
     overwrite->setGroup(&action_radio_group_);
     overwrite->createResources(res);
     overwrite->onChange([this](bool) { custom_name_edit_->setEnabled(false); });
     action_overwrite_ = overwrite.get();
     addChild(std::move(overwrite));
 
-    auto skip = std::make_unique<D2DRadioButton>(L"Skip");
+    auto skip = std::make_unique<D2DRadioButton>(i18n::tr("dialog.conflict.skip"));
     skip->setGroup(&action_radio_group_);
     skip->createResources(res);
     skip->onChange([this](bool) { custom_name_edit_->setEnabled(false); });
@@ -222,7 +223,7 @@ void D2DFileConflictDialog::createComponents() {
     addChild(std::move(skip));
 
     // Radio buttons - Right column
-    auto rename = std::make_unique<D2DRadioButton>(L"Rename:");
+    auto rename = std::make_unique<D2DRadioButton>(i18n::tr("dialog.conflict.rename"));
     rename->setGroup(&action_radio_group_);
     rename->createResources(res);
     rename->onChange([this](bool selected) {
@@ -234,14 +235,14 @@ void D2DFileConflictDialog::createComponents() {
     action_rename_ = rename.get();
     addChild(std::move(rename));
 
-    auto autonumber = std::make_unique<D2DRadioButton>(L"Auto number");
+    auto autonumber = std::make_unique<D2DRadioButton>(i18n::tr("dialog.conflict.auto_number"));
     autonumber->setGroup(&action_radio_group_);
     autonumber->createResources(res);
     autonumber->onChange([this](bool) { custom_name_edit_->setEnabled(false); });
     action_autonumber_ = autonumber.get();
     addChild(std::move(autonumber));
 
-    auto larger = std::make_unique<D2DRadioButton>(L"Keep larger size");
+    auto larger = std::make_unique<D2DRadioButton>(i18n::tr("dialog.conflict.keep_larger"));
     larger->setGroup(&action_radio_group_);
     larger->createResources(res);
     larger->onChange([this](bool) { custom_name_edit_->setEnabled(false); });
@@ -256,18 +257,18 @@ void D2DFileConflictDialog::createComponents() {
     addChild(std::move(edit));
 
     // Checkboxes
-    auto trash = std::make_unique<D2DCheckBox>(L"Move replaced file to Trash");
+    auto trash = std::make_unique<D2DCheckBox>(i18n::tr("dialog.conflict.move_to_trash"));
     trash->createResources(res);
     move_to_trash_check_ = trash.get();
     addChild(std::move(trash));
 
-    auto skip_id = std::make_unique<D2DCheckBox>(L"Skip identical files");
+    auto skip_id = std::make_unique<D2DCheckBox>(i18n::tr("dialog.conflict.skip_identical"));
     skip_id->createResources(res);
     skip_identical_check_ = skip_id.get();
     addChild(std::move(skip_id));
 
     // Buttons
-    auto ok = std::make_unique<D2DButton>(L"OK");
+    auto ok = std::make_unique<D2DButton>(i18n::tr("dialog.conflict.ok"));
     ok->setVariant(ButtonVariant::Primary);
     ok->createResources(res);
     ok->onClick([this]() {
@@ -280,7 +281,7 @@ void D2DFileConflictDialog::createComponents() {
     ok_button_ = ok.get();
     addChild(std::move(ok));
 
-    auto apply_all = std::make_unique<D2DButton>(L"Apply to All");
+    auto apply_all = std::make_unique<D2DButton>(i18n::tr("dialog.conflict.apply_all"));
     apply_all->createResources(res);
     apply_all->onClick([this]() {
         if (validateAndSave()) {
@@ -294,7 +295,7 @@ void D2DFileConflictDialog::createComponents() {
     apply_all_button_ = apply_all.get();
     addChild(std::move(apply_all));
 
-    auto cancel = std::make_unique<D2DButton>(L"Cancel");
+    auto cancel = std::make_unique<D2DButton>(i18n::tr("dialog.conflict.cancel"));
     cancel->createResources(res);
     cancel->onClick([this]() {
         cancelled_ = true;
@@ -546,8 +547,9 @@ void D2DFileConflictDialog::renderThumbnail(ID2D1RenderTarget* rt, const Rect& a
         rt->FillRectangle(area.toD2D(), placeholder_bg_brush_.Get());
 
         if (placeholder_text_brush_ && arrow_text_format_) {
-            rt->DrawText(L"No preview", 10, arrow_text_format_.Get(), area.toD2D(),
-                         placeholder_text_brush_.Get());
+            auto& no_preview = i18n::tr("dialog.conflict.no_preview");
+            rt->DrawText(no_preview.c_str(), static_cast<UINT32>(no_preview.size()),
+                         arrow_text_format_.Get(), area.toD2D(), placeholder_text_brush_.Get());
         }
     }
 }
@@ -590,13 +592,15 @@ bool D2DFileConflictDialog::validateAndSave() {
         resolution_.custom_name = custom_name_edit_->text();
 
         if (resolution_.custom_name.empty()) {
-            MessageBoxW(hwnd(), L"Please enter a file name.", L"Validation Error",
+            MessageBoxW(hwnd(), i18n::tr("dialog.conflict.enter_filename").c_str(),
+                        i18n::tr("dialog.conflict.validation_error").c_str(),
                         MB_ICONWARNING | MB_OK);
             return false;
         }
 
         if (!fs::isValidFilename(resolution_.custom_name)) {
-            MessageBoxW(hwnd(), L"The file name contains invalid characters.", L"Validation Error",
+            MessageBoxW(hwnd(), i18n::tr("dialog.conflict.invalid_filename").c_str(),
+                        i18n::tr("dialog.conflict.validation_error").c_str(),
                         MB_ICONWARNING | MB_OK);
             return false;
         }

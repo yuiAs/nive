@@ -9,6 +9,7 @@
 #include <format>
 
 #include "app.hpp"
+#include "core/i18n/i18n.hpp"
 #include "core/image/wic_decoder.hpp"
 #include "d2d/core/bitmap_utils.hpp"
 
@@ -16,7 +17,6 @@ namespace nive::ui {
 
 namespace {
 constexpr wchar_t kWindowClass[] = L"NiveImageViewerWindow";
-constexpr wchar_t kDefaultTitle[] = L"Image Viewer - nive";
 }  // namespace
 
 ImageViewerWindow::ImageViewerWindow() = default;
@@ -75,7 +75,8 @@ bool ImageViewerWindow::create(HINSTANCE hInstance) {
         height = 300;
 
     hwnd_ = CreateWindowExW(
-        0, kWindowClass, kDefaultTitle, WS_OVERLAPPEDWINDOW, x == CW_USEDEFAULT ? CW_USEDEFAULT : x,
+        0, kWindowClass, i18n::tr("viewer.default_title").c_str(), WS_OVERLAPPEDWINDOW,
+        x == CW_USEDEFAULT ? CW_USEDEFAULT : x,
         y == CW_USEDEFAULT ? CW_USEDEFAULT : y, width, height, nullptr, nullptr, hInstance, this);
 
     if (!hwnd_) {
@@ -700,10 +701,11 @@ void ImageViewerWindow::updateTitle() {
             }
         }
 
-        title = std::format(L"{} ({}x{}) {}% ({}/{})", filename, w, h, zoom_percent, current_index,
-                            total_images);
+        title = std::vformat(i18n::tr("viewer.title_format"),
+                             std::make_wformat_args(filename, w, h, zoom_percent, current_index,
+                                                    total_images));
     } else {
-        title = kDefaultTitle;
+        title = std::wstring(i18n::tr("viewer.default_title"));
     }
 
     SetWindowTextW(hwnd_, title.c_str());
@@ -801,28 +803,36 @@ float ImageViewerWindow::calculateFitZoom(int image_width, int image_height, int
 void ImageViewerWindow::createMenu() {
     menu_ = CreateMenu();
 
+    using i18n::tr;
+
     // File menu
     HMENU file_menu = CreatePopupMenu();
-    AppendMenuW(file_menu, MF_STRING, kIdFileExit, L"E&xit\tEsc");
-    AppendMenuW(menu_, MF_POPUP, reinterpret_cast<UINT_PTR>(file_menu), L"&File");
+    AppendMenuW(file_menu, MF_STRING, kIdFileExit, tr("viewer.menu.file.exit").c_str());
+    AppendMenuW(menu_, MF_POPUP, reinterpret_cast<UINT_PTR>(file_menu),
+                tr("viewer.menu.file.label").c_str());
 
     // View menu
     HMENU view_menu = CreatePopupMenu();
 
     // Display Mode submenu
     HMENU display_mode_menu = CreatePopupMenu();
-    AppendMenuW(display_mode_menu, MF_STRING, kIdViewOriginal, L"&Original\t1");
-    AppendMenuW(display_mode_menu, MF_STRING, kIdViewFitToWindow, L"&Fit to Window");
-    AppendMenuW(display_mode_menu, MF_STRING, kIdViewShrinkToFit, L"&Shrink to Fit\tF");
+    AppendMenuW(display_mode_menu, MF_STRING, kIdViewOriginal,
+                tr("viewer.menu.view.original").c_str());
+    AppendMenuW(display_mode_menu, MF_STRING, kIdViewFitToWindow,
+                tr("viewer.menu.view.fit_to_window").c_str());
+    AppendMenuW(display_mode_menu, MF_STRING, kIdViewShrinkToFit,
+                tr("viewer.menu.view.shrink_to_fit").c_str());
     AppendMenuW(view_menu, MF_POPUP, reinterpret_cast<UINT_PTR>(display_mode_menu),
-                L"&Display Mode");
+                tr("viewer.menu.view.display_mode").c_str());
 
     AppendMenuW(view_menu, MF_SEPARATOR, 0, nullptr);
-    AppendMenuW(view_menu, MF_STRING, kIdViewZoomIn, L"Zoom &In\tCtrl++");
-    AppendMenuW(view_menu, MF_STRING, kIdViewZoomOut, L"Zoom &Out\tCtrl+-");
-    AppendMenuW(view_menu, MF_STRING, kIdViewResetZoom, L"&Reset Zoom\t0");
+    AppendMenuW(view_menu, MF_STRING, kIdViewZoomIn, tr("viewer.menu.view.zoom_in").c_str());
+    AppendMenuW(view_menu, MF_STRING, kIdViewZoomOut, tr("viewer.menu.view.zoom_out").c_str());
+    AppendMenuW(view_menu, MF_STRING, kIdViewResetZoom,
+                tr("viewer.menu.view.reset_zoom").c_str());
 
-    AppendMenuW(menu_, MF_POPUP, reinterpret_cast<UINT_PTR>(view_menu), L"&View");
+    AppendMenuW(menu_, MF_POPUP, reinterpret_cast<UINT_PTR>(view_menu),
+                tr("viewer.menu.view.label").c_str());
 
     SetMenu(hwnd_, menu_);
     updateMenuCheck();

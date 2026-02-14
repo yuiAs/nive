@@ -5,9 +5,11 @@
 
 #include <ShlObj.h>
 
+#include <filesystem>
 #include <format>
 
 #include "core/config/settings_manager.hpp"
+#include "core/i18n/i18n.hpp"
 #include "ui/d2d/core/d2d_factory.hpp"
 
 namespace nive::ui::d2d {
@@ -62,7 +64,7 @@ std::wstring browseForFolder(HWND parent, const wchar_t* title) {
 }  // namespace
 
 D2DSettingsDialog::D2DSettingsDialog() {
-    setTitle(L"Settings");
+    setTitle(i18n::tr("dialog.settings.title"));
     setInitialSize(Size{480.0f, 400.0f});
     setMinimumSize(Size{400.0f, 350.0f});
     setResizable(true);
@@ -90,17 +92,17 @@ void D2DSettingsDialog::createComponents() {
     tab_control_ = tabs.get();
 
     // Add tabs
-    tabs->addTab(L"General", createGeneralTab());
-    tabs->addTab(L"Thumbnails", createThumbnailsTab());
-    tabs->addTab(L"Cache", createCacheTab());
-    tabs->addTab(L"Sorting", createSortingTab());
-    tabs->addTab(L"Network", createNetworkTab());
+    tabs->addTab(i18n::tr("dialog.settings.tab.general"), createGeneralTab());
+    tabs->addTab(i18n::tr("dialog.settings.tab.thumbnails"), createThumbnailsTab());
+    tabs->addTab(i18n::tr("dialog.settings.tab.cache"), createCacheTab());
+    tabs->addTab(i18n::tr("dialog.settings.tab.sorting"), createSortingTab());
+    tabs->addTab(i18n::tr("dialog.settings.tab.network"), createNetworkTab());
     tabs->setSelectedIndex(0);
 
     addChild(std::move(tabs));
 
     // OK button
-    auto ok = std::make_unique<D2DButton>(L"OK");
+    auto ok = std::make_unique<D2DButton>(i18n::tr("dialog.settings.ok"));
     ok->setVariant(ButtonVariant::Primary);
     ok->createResources(deviceResources());
     ok->onClick([this]() {
@@ -113,7 +115,7 @@ void D2DSettingsDialog::createComponents() {
     addChild(std::move(ok));
 
     // Cancel button
-    auto cancel = std::make_unique<D2DButton>(L"Cancel");
+    auto cancel = std::make_unique<D2DButton>(i18n::tr("dialog.settings.cancel"));
     cancel->createResources(deviceResources());
     cancel->onClick([this]() {
         result_ = SettingsDialogResult::Cancel;
@@ -127,24 +129,24 @@ std::unique_ptr<D2DContainerComponent> D2DSettingsDialog::createGeneralTab() {
     auto container = std::make_unique<D2DPanel>();
 
     // Startup directory group
-    auto group = std::make_unique<D2DGroupBox>(L"Startup Directory");
+    auto group = std::make_unique<D2DGroupBox>(i18n::tr("dialog.settings.general.startup_directory"));
     group->createResources(deviceResources());
     startup_group_ = group.get();
 
     // Radio buttons
-    auto home = std::make_unique<D2DRadioButton>(L"Home (Pictures)");
+    auto home = std::make_unique<D2DRadioButton>(i18n::tr("dialog.settings.general.home"));
     home->setGroup(&startup_radio_group_);
     home->createResources(deviceResources());
     startup_home_ = home.get();
     group->addChild(std::move(home));
 
-    auto last = std::make_unique<D2DRadioButton>(L"Last opened directory");
+    auto last = std::make_unique<D2DRadioButton>(i18n::tr("dialog.settings.general.last_opened"));
     last->setGroup(&startup_radio_group_);
     last->createResources(deviceResources());
     startup_last_ = last.get();
     group->addChild(std::move(last));
 
-    auto custom = std::make_unique<D2DRadioButton>(L"Custom:");
+    auto custom = std::make_unique<D2DRadioButton>(i18n::tr("dialog.settings.general.custom"));
     custom->setGroup(&startup_radio_group_);
     custom->createResources(deviceResources());
     custom->onChange([this](bool selected) {
@@ -161,7 +163,7 @@ std::unique_ptr<D2DContainerComponent> D2DSettingsDialog::createGeneralTab() {
     startup_path_ = path_edit.get();
     group->addChild(std::move(path_edit));
 
-    auto browse = std::make_unique<D2DButton>(L"...");
+    auto browse = std::make_unique<D2DButton>(i18n::tr("dialog.settings.general.browse"));
     browse->setEnabled(false);
     browse->createResources(deviceResources());
     browse->onClick([this]() { browseStartupPath(); });
@@ -169,6 +171,31 @@ std::unique_ptr<D2DContainerComponent> D2DSettingsDialog::createGeneralTab() {
     group->addChild(std::move(browse));
 
     container->addChild(std::move(group));
+
+    // Language setting
+    auto lang_lbl = std::make_unique<D2DLabel>(i18n::tr("dialog.settings.general.language"));
+    lang_lbl->createResources(deviceResources());
+    language_label_ = lang_lbl.get();
+    container->addChild(std::move(lang_lbl));
+
+    auto lang_combo = std::make_unique<D2DComboBox>();
+    // Scan available locales and build combo items
+    {
+        wchar_t exe_path[MAX_PATH];
+        GetModuleFileNameW(nullptr, exe_path, MAX_PATH);
+        auto locale_dir = std::filesystem::path(exe_path).parent_path() / L"locales";
+        available_locales_ = i18n::availableLocales(locale_dir);
+    }
+    std::vector<std::wstring> lang_items;
+    lang_items.push_back(std::wstring(i18n::tr("dialog.settings.general.auto_system")));
+    for (const auto& tag : available_locales_) {
+        lang_items.push_back(toWstring(tag));
+    }
+    lang_combo->addItems(lang_items);
+    lang_combo->createResources(deviceResources());
+    language_combo_ = lang_combo.get();
+    container->addChild(std::move(lang_combo));
+
     return container;
 }
 
@@ -176,7 +203,7 @@ std::unique_ptr<D2DContainerComponent> D2DSettingsDialog::createThumbnailsTab() 
     auto container = std::make_unique<D2DPanel>();
 
     // Stored size
-    auto stored_lbl = std::make_unique<D2DLabel>(L"Stored Size (64-2048):");
+    auto stored_lbl = std::make_unique<D2DLabel>(i18n::tr("dialog.settings.thumbnails.stored_size"));
     stored_lbl->createResources(deviceResources());
     stored_size_label_ = stored_lbl.get();
     container->addChild(std::move(stored_lbl));
@@ -189,7 +216,7 @@ std::unique_ptr<D2DContainerComponent> D2DSettingsDialog::createThumbnailsTab() 
     container->addChild(std::move(stored_spin));
 
     // Display size
-    auto display_lbl = std::make_unique<D2DLabel>(L"Display Size (32-512):");
+    auto display_lbl = std::make_unique<D2DLabel>(i18n::tr("dialog.settings.thumbnails.display_size"));
     display_lbl->createResources(deviceResources());
     display_size_label_ = display_lbl.get();
     container->addChild(std::move(display_lbl));
@@ -202,7 +229,7 @@ std::unique_ptr<D2DContainerComponent> D2DSettingsDialog::createThumbnailsTab() 
     container->addChild(std::move(display_spin));
 
     // Buffer count
-    auto buffer_lbl = std::make_unique<D2DLabel>(L"Buffer Count (0-1000):");
+    auto buffer_lbl = std::make_unique<D2DLabel>(i18n::tr("dialog.settings.thumbnails.buffer_count"));
     buffer_lbl->createResources(deviceResources());
     buffer_count_label_ = buffer_lbl.get();
     container->addChild(std::move(buffer_lbl));
@@ -215,7 +242,7 @@ std::unique_ptr<D2DContainerComponent> D2DSettingsDialog::createThumbnailsTab() 
     container->addChild(std::move(buffer_spin));
 
     // Worker count
-    auto worker_lbl = std::make_unique<D2DLabel>(L"Worker Threads (1-16):");
+    auto worker_lbl = std::make_unique<D2DLabel>(i18n::tr("dialog.settings.thumbnails.worker_threads"));
     worker_lbl->createResources(deviceResources());
     worker_count_label_ = worker_lbl.get();
     container->addChild(std::move(worker_lbl));
@@ -233,23 +260,23 @@ std::unique_ptr<D2DContainerComponent> D2DSettingsDialog::createCacheTab() {
     auto container = std::make_unique<D2DPanel>();
 
     // Cache location group
-    auto group = std::make_unique<D2DGroupBox>(L"Cache Location");
+    auto group = std::make_unique<D2DGroupBox>(i18n::tr("dialog.settings.cache.location"));
     group->createResources(deviceResources());
     cache_location_group_ = group.get();
 
-    auto appdata = std::make_unique<D2DRadioButton>(L"AppData (recommended)");
+    auto appdata = std::make_unique<D2DRadioButton>(i18n::tr("dialog.settings.cache.appdata"));
     appdata->setGroup(&cache_radio_group_);
     appdata->createResources(deviceResources());
     cache_appdata_ = appdata.get();
     group->addChild(std::move(appdata));
 
-    auto portable = std::make_unique<D2DRadioButton>(L"Portable (exe folder)");
+    auto portable = std::make_unique<D2DRadioButton>(i18n::tr("dialog.settings.cache.portable"));
     portable->setGroup(&cache_radio_group_);
     portable->createResources(deviceResources());
     cache_portable_ = portable.get();
     group->addChild(std::move(portable));
 
-    auto custom = std::make_unique<D2DRadioButton>(L"Custom:");
+    auto custom = std::make_unique<D2DRadioButton>(i18n::tr("dialog.settings.cache.custom"));
     custom->setGroup(&cache_radio_group_);
     custom->createResources(deviceResources());
     custom->onChange([this](bool selected) {
@@ -265,7 +292,7 @@ std::unique_ptr<D2DContainerComponent> D2DSettingsDialog::createCacheTab() {
     cache_path_ = path_edit.get();
     group->addChild(std::move(path_edit));
 
-    auto browse = std::make_unique<D2DButton>(L"...");
+    auto browse = std::make_unique<D2DButton>(i18n::tr("dialog.settings.cache.browse"));
     browse->setEnabled(false);
     browse->createResources(deviceResources());
     browse->onClick([this]() { browseCustomCachePath(); });
@@ -275,7 +302,7 @@ std::unique_ptr<D2DContainerComponent> D2DSettingsDialog::createCacheTab() {
     container->addChild(std::move(group));
 
     // Compression level
-    auto comp_lbl = std::make_unique<D2DLabel>(L"Compression (0=off, 1-19):");
+    auto comp_lbl = std::make_unique<D2DLabel>(i18n::tr("dialog.settings.cache.compression"));
     comp_lbl->createResources(deviceResources());
     compression_label_ = comp_lbl.get();
     container->addChild(std::move(comp_lbl));
@@ -287,7 +314,7 @@ std::unique_ptr<D2DContainerComponent> D2DSettingsDialog::createCacheTab() {
     container->addChild(std::move(comp_spin));
 
     // Retention checkbox
-    auto retention_cb = std::make_unique<D2DCheckBox>(L"Enable cache retention");
+    auto retention_cb = std::make_unique<D2DCheckBox>(i18n::tr("dialog.settings.cache.retention_enabled"));
     retention_cb->createResources(deviceResources());
     retention_cb->onChange([this](bool checked) {
         retention_label_->setEnabled(checked);
@@ -297,7 +324,7 @@ std::unique_ptr<D2DContainerComponent> D2DSettingsDialog::createCacheTab() {
     container->addChild(std::move(retention_cb));
 
     // Retention days
-    auto ret_lbl = std::make_unique<D2DLabel>(L"Retention (days):");
+    auto ret_lbl = std::make_unique<D2DLabel>(i18n::tr("dialog.settings.cache.retention_days"));
     ret_lbl->setEnabled(false);
     ret_lbl->createResources(deviceResources());
     retention_label_ = ret_lbl.get();
@@ -317,27 +344,30 @@ std::unique_ptr<D2DContainerComponent> D2DSettingsDialog::createSortingTab() {
     auto container = std::make_unique<D2DPanel>();
 
     // Sort method
-    auto method_lbl = std::make_unique<D2DLabel>(L"Sort Method:");
+    auto method_lbl = std::make_unique<D2DLabel>(i18n::tr("dialog.settings.sorting.method"));
     method_lbl->createResources(deviceResources());
     sort_method_label_ = method_lbl.get();
     container->addChild(std::move(method_lbl));
 
     auto method_combo = std::make_unique<D2DComboBox>();
-    method_combo->addItems({L"Natural (file1, file2, file10)",
-                            L"Lexicographic (file1, file10, file2)", L"Date Modified",
-                            L"Date Created", L"Size"});
+    method_combo->addItems({std::wstring(i18n::tr("dialog.settings.sorting.natural")),
+                            std::wstring(i18n::tr("dialog.settings.sorting.lexicographic")),
+                            std::wstring(i18n::tr("dialog.settings.sorting.date_modified")),
+                            std::wstring(i18n::tr("dialog.settings.sorting.date_created")),
+                            std::wstring(i18n::tr("dialog.settings.sorting.size"))});
     method_combo->createResources(deviceResources());
     sort_method_combo_ = method_combo.get();
     container->addChild(std::move(method_combo));
 
     // Sort order
-    auto order_lbl = std::make_unique<D2DLabel>(L"Sort Order:");
+    auto order_lbl = std::make_unique<D2DLabel>(i18n::tr("dialog.settings.sorting.order"));
     order_lbl->createResources(deviceResources());
     sort_order_label_ = order_lbl.get();
     container->addChild(std::move(order_lbl));
 
     auto order_combo = std::make_unique<D2DComboBox>();
-    order_combo->addItems({L"Ascending", L"Descending"});
+    order_combo->addItems({std::wstring(i18n::tr("dialog.settings.sorting.ascending")),
+                           std::wstring(i18n::tr("dialog.settings.sorting.descending"))});
     order_combo->createResources(deviceResources());
     sort_order_combo_ = order_combo.get();
     container->addChild(std::move(order_combo));
@@ -349,7 +379,7 @@ std::unique_ptr<D2DContainerComponent> D2DSettingsDialog::createNetworkTab() {
     auto container = std::make_unique<D2DPanel>();
 
     // Label
-    auto lbl = std::make_unique<D2DLabel>(L"Network share paths:");
+    auto lbl = std::make_unique<D2DLabel>(i18n::tr("dialog.settings.network.label"));
     lbl->createResources(deviceResources());
     network_label_ = lbl.get();
     container->addChild(std::move(lbl));
@@ -361,14 +391,14 @@ std::unique_ptr<D2DContainerComponent> D2DSettingsDialog::createNetworkTab() {
     container->addChild(std::move(list));
 
     // Add button
-    auto add = std::make_unique<D2DButton>(L"Add...");
+    auto add = std::make_unique<D2DButton>(i18n::tr("dialog.settings.network.add"));
     add->createResources(deviceResources());
     add->onClick([this]() { addNetworkShare(); });
     network_add_ = add.get();
     container->addChild(std::move(add));
 
     // Remove button
-    auto remove = std::make_unique<D2DButton>(L"Remove");
+    auto remove = std::make_unique<D2DButton>(i18n::tr("dialog.settings.network.remove"));
     remove->createResources(deviceResources());
     remove->onClick([this]() { removeNetworkShare(); });
     network_remove_ = remove.get();
@@ -441,6 +471,16 @@ void D2DSettingsDialog::layoutGeneralTab() {
 
     float browse_x = path_x + path_width + 5.0f;
     startup_browse_->arrange(Rect{browse_x, y, button_width, item_height});
+
+    // Language row (below startup group)
+    float lang_y = content.y + padding + group_height + padding;
+    float label_x = content.x + padding;
+    float label_width = 80.0f;
+    float combo_width = 150.0f;
+
+    language_label_->arrange(Rect{label_x, lang_y, label_width, item_height});
+    language_combo_->arrange(
+        Rect{label_x + label_width + 10.0f, lang_y, combo_width, item_height});
 }
 
 void D2DSettingsDialog::layoutThumbnailsTab() {
@@ -603,6 +643,21 @@ void D2DSettingsDialog::populateFromSettings() {
         startup_path_->setText(settings_->custom_startup_path.wstring());
     }
 
+    // Language setting
+    if (settings_->language == "auto" || settings_->language.empty()) {
+        language_combo_->setSelectedIndex(0);  // "Auto (System)"
+    } else {
+        // Find matching locale in available_locales_
+        int lang_index = 0;
+        for (size_t i = 0; i < available_locales_.size(); ++i) {
+            if (available_locales_[i] == settings_->language) {
+                lang_index = static_cast<int>(i) + 1;  // +1 for "Auto (System)"
+                break;
+            }
+        }
+        language_combo_->setSelectedIndex(lang_index);
+    }
+
     // Thumbnails tab
     stored_size_spin_->setValue(settings_->thumbnails.stored_size);
     display_size_spin_->setValue(settings_->thumbnails.display_size);
@@ -675,6 +730,19 @@ bool D2DSettingsDialog::validateAndSave() {
     }
     settings_->custom_startup_path = startup_path_->text();
 
+    // Language setting
+    int lang_index = language_combo_->selectedIndex();
+    if (lang_index <= 0) {
+        settings_->language = "auto";
+    } else {
+        size_t locale_idx = static_cast<size_t>(lang_index) - 1;
+        if (locale_idx < available_locales_.size()) {
+            settings_->language = available_locales_[locale_idx];
+        } else {
+            settings_->language = "auto";
+        }
+    }
+
     // Thumbnails tab
     settings_->thumbnails.stored_size = stored_size_spin_->value();
     settings_->thumbnails.display_size = display_size_spin_->value();
@@ -727,11 +795,14 @@ bool D2DSettingsDialog::validateAndSave() {
     // Validate
     auto validation = config::SettingsManager::validate(*settings_);
     if (!validation.valid) {
-        std::wstring msg = L"Invalid settings:\n";
+        std::wstring msg(i18n::tr("dialog.settings.validation.invalid_settings"));
         for (const auto& error : validation.errors) {
-            msg += L"- " + toWstring(error) + L"\n";
+            msg += std::wstring(i18n::tr("dialog.settings.validation.error_prefix"))
+                + toWstring(error) + L"\n";
         }
-        MessageBoxW(hwnd(), msg.c_str(), L"Validation Error", MB_ICONERROR | MB_OK);
+        MessageBoxW(hwnd(), msg.c_str(),
+                     i18n::tr("dialog.settings.validation.title").c_str(),
+                     MB_ICONERROR | MB_OK);
         return false;
     }
 
@@ -739,21 +810,21 @@ bool D2DSettingsDialog::validateAndSave() {
 }
 
 void D2DSettingsDialog::browseStartupPath() {
-    auto path = browseForFolder(hwnd(), L"Select Startup Directory");
+    auto path = browseForFolder(hwnd(), i18n::tr("dialog.settings.general.select_startup_dir").c_str());
     if (!path.empty()) {
         startup_path_->setText(path);
     }
 }
 
 void D2DSettingsDialog::browseCustomCachePath() {
-    auto path = browseForFolder(hwnd(), L"Select Cache Directory");
+    auto path = browseForFolder(hwnd(), i18n::tr("dialog.settings.cache.select_cache_dir").c_str());
     if (!path.empty()) {
         cache_path_->setText(path);
     }
 }
 
 void D2DSettingsDialog::addNetworkShare() {
-    auto path = browseForFolder(hwnd(), L"Select Network Share");
+    auto path = browseForFolder(hwnd(), i18n::tr("dialog.settings.network.select_share").c_str());
     if (!path.empty()) {
         network_list_->addItem(path);
     }
@@ -789,6 +860,10 @@ void D2DSettingsDialog::recreateAllComponentResources() {
         startup_path_->createResources(res);
     if (startup_browse_)
         startup_browse_->createResources(res);
+    if (language_label_)
+        language_label_->createResources(res);
+    if (language_combo_)
+        language_combo_->createResources(res);
 
     // Thumbnails tab
     if (stored_size_label_)
@@ -878,6 +953,8 @@ void D2DSettingsDialog::updateActiveTabResources() {
             startup_path_->createResources(res);
         if (startup_browse_)
             startup_browse_->createResources(res);
+        if (language_combo_)
+            language_combo_->createResources(res);
         break;
     case 1:  // Thumbnails
         if (stored_size_spin_)
@@ -989,6 +1066,8 @@ bool D2DSettingsDialog::onMouseDown(const MouseEvent& event) {
         active_popup_ = sort_method_combo_;
     } else if (sort_order_combo_ && sort_order_combo_->isDropdownOpen()) {
         active_popup_ = sort_order_combo_;
+    } else if (language_combo_ && language_combo_->isDropdownOpen()) {
+        active_popup_ = language_combo_;
     }
 
     return result;

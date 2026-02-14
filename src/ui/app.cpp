@@ -10,6 +10,7 @@
 #include "core/archive/archive_entry.hpp"
 #include "core/config/settings_manager.hpp"
 #include "core/fs/directory.hpp"
+#include "core/i18n/i18n.hpp"
 #include "core/util/logger.hpp"
 #include "image_viewer_window.hpp"
 #include "main_window.hpp"
@@ -35,6 +36,17 @@ bool App::initialize(HINSTANCE hInstance, const AppConfig& config) {
 
     // Load settings
     settings_ = config::SettingsManager::loadOrDefault();
+
+    // Initialize i18n (before any UI creation)
+    {
+        wchar_t exe_path[MAX_PATH];
+        GetModuleFileNameW(nullptr, exe_path, MAX_PATH);
+        auto locale_dir = std::filesystem::path(exe_path).parent_path() / L"locales";
+        auto result = i18n::init(locale_dir, settings_.language);
+        if (!result) {
+            LOG_WARN("i18n init failed: falling back to key strings");
+        }
+    }
 
     // Create application state
     state_ = std::make_unique<AppState>();

@@ -182,6 +182,9 @@ Settings parse_settings(const toml::table& tbl) {
         }
     }
 
+    // Language setting
+    settings.language = get_nested_or<std::string>(tbl, "i18n", "language", "auto");
+
     return settings;
 }
 
@@ -289,6 +292,11 @@ toml::table serialize_settings(const Settings& settings) {
                                 {"last_directory", to_utf8(settings.last_directory.wstring())},
         });
     }
+
+    // Language setting
+    tbl.insert("i18n", toml::table{
+                            {"language", settings.language},
+    });
 
     return tbl;
 }
@@ -465,7 +473,12 @@ std::expected<void, ConfigError> SettingsManager::saveTo(const Settings& setting
         if (!settings.last_directory.empty()) {
             file << "[state]\n";
             file << "last_directory = \"" << to_utf8(settings.last_directory.wstring()) << "\"\n";
+            file << "\n";
         }
+
+        // Language setting
+        file << "[i18n]\n";
+        file << "language = \"" << settings.language << "\"\n";
 #endif
 
         return {};

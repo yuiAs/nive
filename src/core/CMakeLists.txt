@@ -44,6 +44,12 @@ target_sources(nive_core
         # Plugin module
         plugin/plugin_loader.cpp
         plugin/plugin_manager.cpp
+
+        # i18n module
+        i18n/i18n.cpp
+        i18n/message_store.cpp
+        i18n/locale_detector.cpp
+        i18n/icu_formatter.cpp
 )
 
 target_include_directories(nive_core
@@ -64,6 +70,7 @@ target_link_libraries(nive_core
         uuid            # COM GUIDs
         bcrypt          # CNG (Cryptography Next Generation)
         comctl32        # Common Controls
+        icu             # Windows built-in ICU (Win10 1903+)
     PRIVATE
         sqlite3         # SQLite database
 )

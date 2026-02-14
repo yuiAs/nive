@@ -4,6 +4,8 @@
 #pragma once
 
 #include <memory>
+#include <string>
+#include <vector>
 
 #include "core/config/settings.hpp"
 #include "ui/d2d/components/button.hpp"
@@ -100,6 +102,9 @@ private:
     D2DEditBox* startup_path_ = nullptr;
     D2DButton* startup_browse_ = nullptr;
     D2DRadioGroup startup_radio_group_;
+    D2DLabel* language_label_ = nullptr;
+    D2DComboBox* language_combo_ = nullptr;
+    std::vector<std::string> available_locales_;
 
     // Thumbnails tab components
     D2DLabel* stored_size_label_ = nullptr;

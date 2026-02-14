@@ -6,6 +6,7 @@
 #include <format>
 
 #include "core/fs/trash.hpp"
+#include "core/i18n/i18n.hpp"
 #include "ui/d2d/dialog/delete_confirm/d2d_delete_confirm_dialog.hpp"
 #include "ui/d2d/dialog/file_conflict/d2d_file_conflict_dialog.hpp"
 
@@ -42,7 +43,7 @@ FileOperationManager::copyFiles(const std::vector<std::filesystem::path>& files,
     auto result = fs::copyFilesWithConflictHandling(files, dest_dir, copy_options);
 
     if (!result.failed_files.empty() && result.error != fs::FileOperationError::Cancelled) {
-        showErrorDialog(result, L"Copy");
+        showErrorDialog(result, std::wstring(i18n::tr("file_operation.copy")));
     }
 
     if (complete_callback_) {
@@ -79,7 +80,7 @@ FileOperationManager::moveFiles(const std::vector<std::filesystem::path>& files,
     auto result = fs::moveFilesWithConflictHandling(files, dest_dir, move_options);
 
     if (!result.failed_files.empty() && result.error != fs::FileOperationError::Cancelled) {
-        showErrorDialog(result, L"Move");
+        showErrorDialog(result, std::wstring(i18n::tr("file_operation.move")));
     }
 
     if (complete_callback_) {
@@ -163,7 +164,7 @@ FileOperationManager::deleteFiles(const std::vector<std::filesystem::path>& file
     }
 
     if (!result.failed_files.empty() && result.error != fs::FileOperationError::Cancelled) {
-        showErrorDialog(result, L"Delete");
+        showErrorDialog(result, std::wstring(i18n::tr("file_operation.delete")));
     }
 
     if (complete_callback_) {
@@ -195,31 +196,33 @@ void FileOperationManager::showErrorDialog(const fs::FileOperationResult& result
     std::wstring message;
 
     if (result.partiallySucceeded()) {
-        message = std::format(
-            L"{} operation completed with errors.\n\n"
-            L"{} files processed successfully.\n"
-            L"{} files failed.",
-            operation, result.files_processed, result.failed_files.size());
+        auto processed = result.files_processed;
+        auto failed = result.failed_files.size();
+        message = std::vformat(i18n::tr("file_operation.partial_success"),
+                               std::make_wformat_args(operation, processed, failed));
     } else {
-        message = std::format(
-            L"{} operation failed.\n\n"
-            L"{} files could not be processed.",
-            operation, result.failed_files.size());
+        auto failed = result.failed_files.size();
+        message = std::vformat(i18n::tr("file_operation.all_failed"),
+                               std::make_wformat_args(operation, failed));
     }
 
     // Add details for first few failed files
     if (!result.failed_files.empty()) {
-        message += L"\n\nFailed files:";
+        message += std::wstring(i18n::tr("file_operation.failed_files_header"));
         size_t show_count = std::min(result.failed_files.size(), size_t(5));
         for (size_t i = 0; i < show_count; ++i) {
-            message += L"\n- " + result.failed_files[i].filename().wstring();
+            message += std::wstring(i18n::tr("file_operation.failed_file_prefix"))
+                + result.failed_files[i].filename().wstring();
         }
         if (result.failed_files.size() > show_count) {
-            message += std::format(L"\n... and {} more", result.failed_files.size() - show_count);
+            auto more = result.failed_files.size() - show_count;
+            message += std::vformat(i18n::tr("file_operation.more_files"),
+                                    std::make_wformat_args(more));
         }
     }
 
-    MessageBoxW(parent_window_, message.c_str(), L"File Operation Error", MB_ICONWARNING | MB_OK);
+    MessageBoxW(parent_window_, message.c_str(),
+                i18n::tr("file_operation.error_title").c_str(), MB_ICONWARNING | MB_OK);
 }
 
 }  // namespace nive::ui

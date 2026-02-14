@@ -15,6 +15,7 @@
 #include "components/file_list_view.hpp"
 #include "components/thumbnail_grid.hpp"
 #include "core/fs/file_operations.hpp"
+#include "core/i18n/i18n.hpp"
 #include "core/thumbnail/thumbnail_request.hpp"
 #include "d2d/dialog/settings/d2d_settings_dialog.hpp"
 #include "file_operation_manager.hpp"
@@ -151,12 +152,14 @@ void MainWindow::updateStatus(const std::wstring& path, size_t file_count, size_
     // Part 0: Path
     SendMessageW(status_bar_, SB_SETTEXTW, 0, reinterpret_cast<LPARAM>(path.c_str()));
 
-    // Part 1: File count
-    auto file_text = std::format(L"{} file(s)", file_count);
+    // Part 1: File count (ICU plural format)
+    auto file_text =
+        i18n::format("status.file_count", {{"count", static_cast<int64_t>(file_count)}});
     SendMessageW(status_bar_, SB_SETTEXTW, 1, reinterpret_cast<LPARAM>(file_text.c_str()));
 
     // Part 2: Thumbnail count
-    auto thumb_text = std::format(L"Thumbnails: {}", thumbnailCount);
+    auto thumb_text =
+        std::vformat(i18n::tr("status.thumbnail_count"), std::make_wformat_args(thumbnailCount));
     SendMessageW(status_bar_, SB_SETTEXTW, 2, reinterpret_cast<LPARAM>(thumb_text.c_str()));
 }
 
@@ -428,47 +431,59 @@ void MainWindow::onCommand(WORD id) {
 }
 
 void MainWindow::createMenu() {
+    using i18n::tr;
     menu_ = CreateMenu();
 
     // File menu
     HMENU file_menu = CreatePopupMenu();
-    AppendMenuW(file_menu, MF_STRING, kIdFileRefresh, L"&Refresh\tF5");
+    AppendMenuW(file_menu, MF_STRING, kIdFileRefresh, tr("menu.file.refresh").c_str());
     AppendMenuW(file_menu, MF_SEPARATOR, 0, nullptr);
-    AppendMenuW(file_menu, MF_STRING, kIdFileSettings, L"&Settings...");
+    AppendMenuW(file_menu, MF_STRING, kIdFileSettings, tr("menu.file.settings").c_str());
     AppendMenuW(file_menu, MF_SEPARATOR, 0, nullptr);
-    AppendMenuW(file_menu, MF_STRING, kIdFileExit, L"E&xit\tAlt+F4");
-    AppendMenuW(menu_, MF_POPUP, reinterpret_cast<UINT_PTR>(file_menu), L"&File");
+    AppendMenuW(file_menu, MF_STRING, kIdFileExit, tr("menu.file.exit").c_str());
+    AppendMenuW(menu_, MF_POPUP, reinterpret_cast<UINT_PTR>(file_menu),
+                tr("menu.file.label").c_str());
 
     // View menu
     HMENU view_menu = CreatePopupMenu();
-    AppendMenuW(view_menu, MF_STRING, kIdViewThumbnails, L"&Thumbnails");
-    AppendMenuW(view_menu, MF_STRING, kIdViewDetails, L"&Details");
+    AppendMenuW(view_menu, MF_STRING, kIdViewThumbnails, tr("menu.view.thumbnails").c_str());
+    AppendMenuW(view_menu, MF_STRING, kIdViewDetails, tr("menu.view.details").c_str());
     AppendMenuW(view_menu, MF_SEPARATOR, 0, nullptr);
 
     // Sort Method submenu
     HMENU sort_method_menu = CreatePopupMenu();
-    AppendMenuW(sort_method_menu, MF_STRING, kIdSortNatural, L"&Natural (file1, file2, file10)");
+    AppendMenuW(sort_method_menu, MF_STRING, kIdSortNatural,
+                tr("menu.view.sort_method.natural").c_str());
     AppendMenuW(sort_method_menu, MF_STRING, kIdSortLexicographic,
-                L"&Lexicographic (file1, file10, file2)");
-    AppendMenuW(sort_method_menu, MF_STRING, kIdSortDateModified, L"Date &Modified");
-    AppendMenuW(sort_method_menu, MF_STRING, kIdSortDateCreated, L"Date &Created");
-    AppendMenuW(sort_method_menu, MF_STRING, kIdSortSize, L"&Size");
-    AppendMenuW(view_menu, MF_POPUP, reinterpret_cast<UINT_PTR>(sort_method_menu), L"Sort &Method");
+                tr("menu.view.sort_method.lexicographic").c_str());
+    AppendMenuW(sort_method_menu, MF_STRING, kIdSortDateModified,
+                tr("menu.view.sort_method.date_modified").c_str());
+    AppendMenuW(sort_method_menu, MF_STRING, kIdSortDateCreated,
+                tr("menu.view.sort_method.date_created").c_str());
+    AppendMenuW(sort_method_menu, MF_STRING, kIdSortSize,
+                tr("menu.view.sort_method.size").c_str());
+    AppendMenuW(view_menu, MF_POPUP, reinterpret_cast<UINT_PTR>(sort_method_menu),
+                tr("menu.view.sort_method.label").c_str());
 
     // Sort Order submenu
     HMENU sort_order_menu = CreatePopupMenu();
-    AppendMenuW(sort_order_menu, MF_STRING, kIdSortAscending, L"&Ascending");
-    AppendMenuW(sort_order_menu, MF_STRING, kIdSortDescending, L"&Descending");
-    AppendMenuW(view_menu, MF_POPUP, reinterpret_cast<UINT_PTR>(sort_order_menu), L"Sort &Order");
+    AppendMenuW(sort_order_menu, MF_STRING, kIdSortAscending,
+                tr("menu.view.sort_order.ascending").c_str());
+    AppendMenuW(sort_order_menu, MF_STRING, kIdSortDescending,
+                tr("menu.view.sort_order.descending").c_str());
+    AppendMenuW(view_menu, MF_POPUP, reinterpret_cast<UINT_PTR>(sort_order_menu),
+                tr("menu.view.sort_order.label").c_str());
 
-    AppendMenuW(menu_, MF_POPUP, reinterpret_cast<UINT_PTR>(view_menu), L"&View");
+    AppendMenuW(menu_, MF_POPUP, reinterpret_cast<UINT_PTR>(view_menu),
+                tr("menu.view.label").c_str());
 
     // Help menu
     HMENU help_menu = CreatePopupMenu();
 #ifdef NIVE_DEBUG_D2D_TEST
-    AppendMenuW(help_menu, MF_STRING, kIdDebugD2DTest, L"D2D &Test Dialog...\tCtrl+Shift+D");
+    AppendMenuW(help_menu, MF_STRING, kIdDebugD2DTest, tr("menu.help.d2d_test").c_str());
 #endif
-    AppendMenuW(menu_, MF_POPUP, reinterpret_cast<UINT_PTR>(help_menu), L"&Help");
+    AppendMenuW(menu_, MF_POPUP, reinterpret_cast<UINT_PTR>(help_menu),
+                tr("menu.help.label").c_str());
 
     SetMenu(hwnd_, menu_);
     updateSortMenu();
@@ -489,7 +504,7 @@ void MainWindow::createStatusBar() {
     int parts[] = {rc.right / 2, rc.right * 3 / 4, -1};
     SendMessageW(status_bar_, SB_SETPARTS, 3, reinterpret_cast<LPARAM>(parts));
 
-    updateStatus(L"Ready", 0, 0);
+    updateStatus(std::wstring(i18n::tr("status.ready")), 0, 0);
 }
 
 void MainWindow::createChildControls() {

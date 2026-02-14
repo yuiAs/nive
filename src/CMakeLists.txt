@@ -30,3 +30,11 @@ add_custom_command(TARGET nive POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:nive>/plugins"
     COMMENT "Creating plugins directory"
 )
+
+# Post-build: Copy locale files
+add_custom_command(TARGET nive POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:nive>/locales"
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        "${CMAKE_SOURCE_DIR}/locales" "$<TARGET_FILE_DIR:nive>/locales"
+    COMMENT "Copying locale files"
+)

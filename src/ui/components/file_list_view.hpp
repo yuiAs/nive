@@ -80,6 +80,12 @@ public:
     /// @param widths Array of column widths [Name, Size, Date, Resolution]
     void setColumnWidths(const std::array<int, 4>& widths);
 
+    /// @brief Set resolution for a file item
+    /// @param path Source file path
+    /// @param width Original image width
+    /// @param height Original image height
+    void setResolution(const std::filesystem::path& path, uint32_t width, uint32_t height);
+
     /// @brief Refresh display
     void refresh();
 

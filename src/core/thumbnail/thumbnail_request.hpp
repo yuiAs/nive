@@ -46,6 +46,8 @@ struct ThumbnailResult {
     std::filesystem::path path;
     std::optional<image::DecodedImage> thumbnail;
     std::optional<std::string> error;
+    uint32_t original_width = 0;
+    uint32_t original_height = 0;
 
     [[nodiscard]] bool success() const noexcept {
         return thumbnail.has_value() && !error.has_value();

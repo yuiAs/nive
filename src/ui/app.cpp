@@ -5,6 +5,7 @@
 
 #include <ShlObj.h>
 
+#include "components/file_list_view.hpp"
 #include "components/thumbnail_grid.hpp"
 #include "core/archive/archive_entry.hpp"
 #include "core/config/settings_manager.hpp"
@@ -392,6 +393,9 @@ void App::processThumbnailResults() {
             if (auto* grid = main_window_->thumbnailGrid()) {
                 grid->setThumbnail(result.path, std::move(*result.thumbnail));
                 success_count++;
+            }
+            if (auto* list = main_window_->fileListView()) {
+                list->setResolution(result.path, result.original_width, result.original_height);
             }
         } else if (result.error) {
             LOG_WARN("Thumbnail generation failed for {}: {}", result.path.string(), *result.error);

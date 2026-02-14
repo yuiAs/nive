@@ -212,6 +212,13 @@ void ThumbnailGenerator::processRequest(ThumbnailRequest& request, image::WicDec
         auto cached = cache_->getThumbnail(request.source.path);
         if (cached) {
             result.thumbnail = std::move(*cached);
+
+            // Retrieve original resolution from cache (memory cache hit, O(1))
+            if (auto res = cache_->getImageResolution(request.source.path)) {
+                result.original_width = res->width;
+                result.original_height = res->height;
+            }
+
             stats_.completed_requests.fetch_add(1, std::memory_order_relaxed);
 
             // Update timing stats
@@ -269,6 +276,8 @@ void ThumbnailGenerator::processRequest(ThumbnailRequest& request, image::WicDec
             }
 
             result.thumbnail = std::move(*thumb_result);
+            result.original_width = original_width;
+            result.original_height = original_height;
             stats_.completed_requests.fetch_add(1, std::memory_order_relaxed);
         } else {
             result.error = std::string(image::to_string(thumb_result.error()));

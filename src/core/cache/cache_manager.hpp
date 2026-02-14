@@ -20,6 +20,12 @@
 
 namespace nive::cache {
 
+/// @brief Original image resolution
+struct ImageResolution {
+    uint32_t width = 0;
+    uint32_t height = 0;
+};
+
 /// @brief High-level cache manager
 ///
 /// Manages a two-tier cache:
@@ -77,6 +83,12 @@ public:
                                                                const image::DecodedImage& thumbnail,
                                                                uint32_t original_width,
                                                                uint32_t original_height);
+
+    /// @brief Get original image resolution from cache
+    /// @param path Source file path
+    /// @return Resolution if cached, nullopt otherwise
+    [[nodiscard]] std::optional<ImageResolution>
+    getImageResolution(const std::filesystem::path& path);
 
     /// @brief Remove thumbnail from cache
     /// @param path Source file path

@@ -170,6 +170,33 @@ public:
         return database_->put(entry);
     }
 
+    [[nodiscard]] std::optional<ImageResolution>
+    getImageResolution(const std::filesystem::path& path) {
+        std::string key = generateCacheKey(path);
+        if (key.empty()) {
+            return std::nullopt;
+        }
+
+        // Check memory cache first (O(1) after getThumbnail loaded the entry)
+        {
+            std::lock_guard lock(memory_mutex_);
+            auto cached = memory_cache_.get(key);
+            if (cached && cached->metadata.original_width > 0) {
+                return ImageResolution{cached->metadata.original_width,
+                                       cached->metadata.original_height};
+            }
+        }
+
+        // Fall back to disk cache
+        auto result = database_->get(key);
+        if (result && result->metadata.original_width > 0) {
+            return ImageResolution{result->metadata.original_width,
+                                   result->metadata.original_height};
+        }
+
+        return std::nullopt;
+    }
+
     void removeThumbnail(const std::filesystem::path& path) {
         std::string key = generateCacheKey(path);
         if (key.empty()) {
@@ -436,6 +463,11 @@ std::expected<void, CacheError> CacheManager::putThumbnail(const std::filesystem
                                                            uint32_t original_width,
                                                            uint32_t original_height) {
     return impl_->putThumbnail(path, thumbnail, original_width, original_height);
+}
+
+std::optional<ImageResolution>
+CacheManager::getImageResolution(const std::filesystem::path& path) {
+    return impl_->getImageResolution(path);
 }
 
 void CacheManager::removeThumbnail(const std::filesystem::path& path) {

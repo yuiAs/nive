@@ -122,6 +122,23 @@ std::vector<std::filesystem::path> FileListView::selectedFilePaths() const {
     return paths;
 }
 
+void FileListView::setResolution(const std::filesystem::path& path, uint32_t width,
+                                  uint32_t height) {
+    if (!hwnd_ || width == 0 || height == 0) {
+        return;
+    }
+
+    std::wstring key = path.wstring();
+    for (size_t i = 0; i < items_.size(); ++i) {
+        if (items_[i].sourceIdentifier() == key) {
+            auto text = formatResolution(width, height);
+            ListView_SetItemText(hwnd_, static_cast<int>(i), 3,
+                                 const_cast<LPWSTR>(text.c_str()));
+            return;
+        }
+    }
+}
+
 void FileListView::refresh() {
     InvalidateRect(hwnd_, nullptr, TRUE);
 }

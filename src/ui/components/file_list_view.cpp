@@ -134,7 +134,7 @@ void FileListView::setResolution(const std::filesystem::path& path, uint32_t wid
     for (size_t i = 0; i < items_.size(); ++i) {
         if (items_[i].sourceIdentifier() == key) {
             auto text = formatResolution(width, height);
-            ListView_SetItemText(hwnd_, static_cast<int>(i), 4,
+            ListView_SetItemText(hwnd_, static_cast<int>(i), 3,
                                  const_cast<LPWSTR>(text.c_str()));
             return;
         }
@@ -224,15 +224,15 @@ void FileListView::createColumns() {
     lvc.iSubItem = 2;
     ListView_InsertColumn(hwnd_, 2, &lvc);
 
-    // Path column (archive internal directory)
-    lvc.pszText = const_cast<LPWSTR>(tr("filelist.column.path").c_str());
-    lvc.cx = 150;
-    lvc.iSubItem = 3;
-    ListView_InsertColumn(hwnd_, 3, &lvc);
-
     // Resolution column
     lvc.pszText = const_cast<LPWSTR>(tr("filelist.column.resolution").c_str());
     lvc.cx = 100;
+    lvc.iSubItem = 3;
+    ListView_InsertColumn(hwnd_, 3, &lvc);
+
+    // Path column (archive internal directory)
+    lvc.pszText = const_cast<LPWSTR>(tr("filelist.column.path").c_str());
+    lvc.cx = 150;
     lvc.iSubItem = 4;
     ListView_InsertColumn(hwnd_, 4, &lvc);
 }
@@ -265,13 +265,13 @@ void FileListView::populateItems() {
         auto date_str = formatDate(item.modified_time);
         ListView_SetItemText(hwnd_, static_cast<int>(i), 2, const_cast<LPWSTR>(date_str.c_str()));
 
+        // Resolution (not available in FileMetadata)
+        ListView_SetItemText(hwnd_, static_cast<int>(i), 3,
+                             const_cast<LPWSTR>(i18n::tr("filelist.column.placeholder").c_str()));
+
         // Path (archive internal directory)
         auto path_str = formatArchivePath(item);
-        ListView_SetItemText(hwnd_, static_cast<int>(i), 3, const_cast<LPWSTR>(path_str.c_str()));
-
-        // Resolution (not available in FileMetadata)
-        ListView_SetItemText(hwnd_, static_cast<int>(i), 4,
-                             const_cast<LPWSTR>(i18n::tr("filelist.column.placeholder").c_str()));
+        ListView_SetItemText(hwnd_, static_cast<int>(i), 4, const_cast<LPWSTR>(path_str.c_str()));
     }
 
     // Re-enable redraw
@@ -297,13 +297,13 @@ void FileListView::updateItem(size_t index) {
     auto date_str = formatDate(item.modified_time);
     ListView_SetItemText(hwnd_, i, 2, const_cast<LPWSTR>(date_str.c_str()));
 
+    // Resolution (not available in FileMetadata)
+    ListView_SetItemText(hwnd_, i, 3,
+                         const_cast<LPWSTR>(i18n::tr("filelist.column.placeholder").c_str()));
+
     // Path (archive internal directory)
     auto path_str = formatArchivePath(item);
-    ListView_SetItemText(hwnd_, i, 3, const_cast<LPWSTR>(path_str.c_str()));
-
-    // Resolution (not available in FileMetadata)
-    ListView_SetItemText(hwnd_, i, 4,
-                         const_cast<LPWSTR>(i18n::tr("filelist.column.placeholder").c_str()));
+    ListView_SetItemText(hwnd_, i, 4, const_cast<LPWSTR>(path_str.c_str()));
 }
 
 std::wstring FileListView::formatSize(uint64_t size) {

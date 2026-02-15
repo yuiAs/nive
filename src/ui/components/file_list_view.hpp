@@ -20,8 +20,8 @@ enum class FileListColumn {
     Name,
     Size,
     Date,
-    Path,
     Resolution,
+    Path,
 };
 
 /// @brief File list view component
@@ -74,11 +74,11 @@ public:
     void setSort(FileListColumn column, bool ascending);
 
     /// @brief Get column widths
-    /// @return Array of column widths [Name, Size, Date, Path, Resolution]
+    /// @return Array of column widths [Name, Size, Date, Resolution, Path]
     [[nodiscard]] std::array<int, 5> getColumnWidths() const;
 
     /// @brief Set column widths
-    /// @param widths Array of column widths [Name, Size, Date, Path, Resolution]
+    /// @param widths Array of column widths [Name, Size, Date, Resolution, Path]
     void setColumnWidths(const std::array<int, 5>& widths);
 
     /// @brief Set resolution for a file item

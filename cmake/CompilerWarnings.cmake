@@ -80,4 +80,17 @@ function(nive_configure_target target)
         LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"
         RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
     )
+
+    # Strip debug info and optimize binary size for Release builds
+    if(MSVC)
+        target_link_options(${target} PRIVATE
+            $<$<CONFIG:Release>:/DEBUG:NONE>   # No PDB generation
+            $<$<CONFIG:Release>:/OPT:REF>      # Remove unreferenced functions/data
+            $<$<CONFIG:Release>:/OPT:ICF>      # Fold identical COMDATs
+        )
+    else()
+        target_link_options(${target} PRIVATE
+            $<$<CONFIG:Release>:-s>            # Strip all symbols
+        )
+    endif()
 endfunction()

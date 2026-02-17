@@ -417,12 +417,8 @@ void App::processThumbnailResults() {
     LOG_DEBUG("processThumbnailResults: {} thumbnails set successfully", success_count);
 
     // Update status bar with current thumbnail count
-    if (main_window_ && state_) {
-        if (auto* grid = main_window_->thumbnailGrid()) {
-            auto path = state_->currentPath().wstring();
-            auto files = state_->files();
-            main_window_->updateStatus(path, files.size(), grid->thumbnailCount());
-        }
+    if (main_window_) {
+        main_window_->updateStatusBar();
     }
 }
 

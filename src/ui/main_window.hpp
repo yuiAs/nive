@@ -66,8 +66,8 @@ public:
     /// @brief Get thumbnail grid component
     [[nodiscard]] ThumbnailGrid* thumbnailGrid() noexcept { return grid_.get(); }
 
-    /// @brief Update status bar text
-    void updateStatus(const std::wstring& path, size_t file_count, size_t thumbnail_count);
+    /// @brief Update status bar from current application state
+    void updateStatusBar();
 
 private:
     static LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);

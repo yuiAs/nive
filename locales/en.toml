@@ -60,7 +60,8 @@ placeholder = "-"
 # Status bar
 [status]
 ready = "Ready"
-file_count = "{count, plural, one {# file} other {# files}}"
+file_count = "{} files"
+selection_status = "{} selected ({})  |  {}"
 thumbnail_count = "Thumbnails: {}"
 
 # Settings dialog

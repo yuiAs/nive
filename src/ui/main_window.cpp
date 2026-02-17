@@ -144,22 +144,68 @@ void MainWindow::saveState(config::Settings& settings) const {
     }
 }
 
-void MainWindow::updateStatus(const std::wstring& path, size_t file_count, size_t thumbnailCount) {
+namespace {
+
+// Format byte size into a human-readable string (e.g. "1.23 MB")
+std::wstring formatSize(uint64_t bytes) {
+    constexpr uint64_t kKB = 1024;
+    constexpr uint64_t kMB = kKB * 1024;
+    constexpr uint64_t kGB = kMB * 1024;
+    constexpr uint64_t kTB = kGB * 1024;
+
+    if (bytes >= kTB) {
+        return std::format(L"{:.2f} TB", static_cast<double>(bytes) / kTB);
+    } else if (bytes >= kGB) {
+        return std::format(L"{:.2f} GB", static_cast<double>(bytes) / kGB);
+    } else if (bytes >= kMB) {
+        return std::format(L"{:.2f} MB", static_cast<double>(bytes) / kMB);
+    } else if (bytes >= kKB) {
+        return std::format(L"{:.2f} KB", static_cast<double>(bytes) / kKB);
+    } else {
+        return std::format(L"{} B", bytes);
+    }
+}
+
+}  // namespace
+
+void MainWindow::updateStatusBar() {
     if (!status_bar_) {
         return;
     }
 
-    // Part 0: Path
-    SendMessageW(status_bar_, SB_SETTEXTW, 0, reinterpret_cast<LPARAM>(path.c_str()));
+    auto& state = App::instance().state();
+    auto path = state.currentPath().wstring();
+    auto files = state.files();
+    auto sel = state.selection();
 
-    // Part 1: File count (ICU plural format)
-    auto file_text =
-        i18n::format("status.file_count", {{"count", static_cast<int64_t>(file_count)}});
-    SendMessageW(status_bar_, SB_SETTEXTW, 1, reinterpret_cast<LPARAM>(file_text.c_str()));
+    // Part 0: Path (or "Ready" if no path set)
+    if (path.empty()) {
+        auto ready = std::wstring(i18n::tr("status.ready"));
+        SendMessageW(status_bar_, SB_SETTEXTW, 0, reinterpret_cast<LPARAM>(ready.c_str()));
+    } else {
+        SendMessageW(status_bar_, SB_SETTEXTW, 0, reinterpret_cast<LPARAM>(path.c_str()));
+    }
+
+    // Part 1: Selection info + file count
+    std::wstring info_text;
+    if (!sel.empty()) {
+        uint64_t total_size = 0;
+        for (size_t idx : sel.indices) {
+            if (idx < files.size()) {
+                total_size += files[idx].size_bytes;
+            }
+        }
+        info_text = std::format(L"{} selected ({})  |  {} files", sel.count(),
+                                formatSize(total_size), files.size());
+    } else {
+        info_text = std::format(L"{} files", files.size());
+    }
+    SendMessageW(status_bar_, SB_SETTEXTW, 1, reinterpret_cast<LPARAM>(info_text.c_str()));
 
     // Part 2: Thumbnail count
+    size_t thumb_count = grid_ ? grid_->thumbnailCount() : 0;
     auto thumb_text =
-        std::vformat(i18n::tr("status.thumbnail_count"), std::make_wformat_args(thumbnailCount));
+        std::vformat(i18n::tr("status.thumbnail_count"), std::make_wformat_args(thumb_count));
     SendMessageW(status_bar_, SB_SETTEXTW, 2, reinterpret_cast<LPARAM>(thumb_text.c_str()));
 }
 
@@ -504,7 +550,7 @@ void MainWindow::createStatusBar() {
     int parts[] = {rc.right / 2, rc.right * 3 / 4, -1};
     SendMessageW(status_bar_, SB_SETPARTS, 3, reinterpret_cast<LPARAM>(parts));
 
-    updateStatus(std::wstring(i18n::tr("status.ready")), 0, 0);
+    updateStatusBar();
 }
 
 void MainWindow::createChildControls() {
@@ -669,12 +715,7 @@ void MainWindow::createChildControls() {
                     tree_->selectPath(target);
                 }
             }
-            // Update status bar
-            {
-                auto path = App::instance().state().currentPath().wstring();
-                auto files = App::instance().state().files();
-                updateStatus(path, files.size(), 0);
-            }
+            updateStatusBar();
             break;
 
         case AppState::ChangeType::DirectoryContents:
@@ -684,12 +725,11 @@ void MainWindow::createChildControls() {
             if (grid_) {
                 grid_->setItems(App::instance().state().files());
             }
-            // Update status bar
-            {
-                auto path = App::instance().state().currentPath().wstring();
-                auto files = App::instance().state().files();
-                updateStatus(path, files.size(), 0);
-            }
+            updateStatusBar();
+            break;
+
+        case AppState::ChangeType::Selection:
+            updateStatusBar();
             break;
 
         default:

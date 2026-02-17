@@ -56,6 +56,12 @@ target_include_directories(nive_core
     PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR}
         ${CMAKE_SOURCE_DIR}/include
+        ${CMAKE_BINARY_DIR}/generated
+)
+
+# Suppress warnings from spdlog headers (external library)
+target_include_directories(nive_core SYSTEM
+    PUBLIC
         ${SPDLOG_INCLUDE_DIR}
 )
 

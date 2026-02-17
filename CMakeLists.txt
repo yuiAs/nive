@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.28)
 
 project(nive
-    VERSION 0.1.0
+    VERSION 0.2.0
     LANGUAGES C CXX
     DESCRIPTION "Lightweight image viewer for Windows"
 )
@@ -88,6 +88,7 @@ endif()
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 include(CompilerWarnings)
 include(StaticAnalysis)
+include(VersionInfo)
 
 # Windows-specific definitions (applied globally)
 # WIN32_LEAN_AND_MEAN: Exclude rarely-used stuff from Windows headers
@@ -124,7 +125,7 @@ install(FILES include/nive/plugin_api.h
 # Print configuration summary
 message(STATUS "")
 message(STATUS "=== nive Configuration ===")
-message(STATUS "Version:        ${PROJECT_VERSION}")
+message(STATUS "Version:        ${PROJECT_VERSION} (${NIVE_GIT_HASH_SHORT})")
 message(STATUS "C++ Standard:   C++26 (via /std:c++latest)")
 message(STATUS "Build Type:     ${CMAKE_BUILD_TYPE}")
 message(STATUS "Build Tests:    ${NIVE_BUILD_TESTS}")

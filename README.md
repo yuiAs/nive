@@ -37,6 +37,7 @@ If 7-Zip is installed in the default location, no additional setup is needed. Fo
 
 - [Visual Studio 2026](https://visualstudio.microsoft.com/) (MSVC with C++ workload)
 - [CMake](https://cmake.org/) 3.28+
+- [Ninja](https://ninja-build.org/) (build system)
 - [NASM](https://www.nasm.us/) (for libaom SIMD optimizations)
 - Git (for submodules)
 
@@ -44,11 +45,18 @@ If 7-Zip is installed in the default location, no additional setup is needed. Fo
 
 ```powershell
 git submodule update --init --recursive
-cmake -B build
-cmake --build build --config Release
+cmake --preset release
+cmake --build --preset release
 ```
 
-The output binary is located at `build/bin/Release/nive.exe`.
+The output binary is located at `build/release/bin/nive.exe`.
+
+> **Note:** The default presets use the Ninja generator. If you prefer Visual Studio, use the `msvc-release` preset instead:
+>
+> ```powershell
+> cmake --preset msvc-release
+> cmake --build --preset msvc-release
+> ```
 
 ### Dependencies
 

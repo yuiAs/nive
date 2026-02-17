@@ -95,6 +95,8 @@ private:
     void onMouseMove(int x, int y);
     void onLbuttonDblclk(int x, int y);
 
+    void deleteCurrentImage();
+
     void render();
     void recreateBitmap();
     void updateTitle();

@@ -13,6 +13,7 @@
 #include "core/i18n/i18n.hpp"
 #include "core/image/wic_decoder.hpp"
 #include "d2d/core/bitmap_utils.hpp"
+#include "file_operation_manager.hpp"
 
 namespace nive::ui {
 
@@ -485,6 +486,10 @@ void ImageViewerWindow::onKeyDown(WPARAM vk) {
         zoomReset();
         break;
 
+    case VK_DELETE:
+        deleteCurrentImage();
+        break;
+
     default:
         break;
     }
@@ -872,6 +877,67 @@ void ImageViewerWindow::onCommand(WORD id) {
 
     default:
         break;
+    }
+}
+
+void ImageViewerWindow::deleteCurrentImage() {
+    if (current_path_.empty() || current_path_.is_in_archive()) {
+        return;
+    }
+
+    auto file_path = current_path_.archive_path();
+
+    // Determine next image to show before deletion
+    auto files = App::instance().state().files();
+    std::wstring filename = current_path_.filename();
+    std::optional<size_t> current_idx;
+
+    for (size_t i = 0; i < files.size(); ++i) {
+        if (files[i].name == filename) {
+            current_idx = i;
+            break;
+        }
+    }
+
+    std::optional<archive::VirtualPath> next_image;
+    if (current_idx) {
+        // Look forward for next image
+        for (size_t i = *current_idx + 1; i < files.size(); ++i) {
+            if (files[i].is_image()) {
+                next_image =
+                    files[i].virtual_path.value_or(archive::VirtualPath(files[i].path));
+                break;
+            }
+        }
+        // If no next, look backward for previous image
+        if (!next_image) {
+            for (size_t i = *current_idx; i > 0; --i) {
+                if (files[i - 1].is_image()) {
+                    next_image =
+                        files[i - 1].virtual_path.value_or(archive::VirtualPath(files[i - 1].path));
+                    break;
+                }
+            }
+        }
+    }
+
+    // Delete with confirmation dialog
+    FileOperationManager file_op(hwnd_);
+    auto result = file_op.deleteFiles({file_path});
+
+    if (!result.succeeded() && !result.partiallySucceeded()) {
+        return;
+    }
+
+    // Refresh directory listing
+    App::instance().refresh();
+
+    if (next_image) {
+        App::instance().state().setViewerImage(*next_image);
+        setImage(*next_image);
+    } else {
+        // No images remaining
+        close();
     }
 }
 

@@ -340,7 +340,7 @@ std::optional<image::DecodedImage> PluginManager::convertImage(const NiveDecoded
     switch (src.format) {
     case NIVE_PIXEL_FORMAT_RGBA8:
         bytes_per_pixel = 4;
-        format = image::PixelFormat::RGBA32;
+        format = image::PixelFormat::BGRA32;  // Convert to Windows-native BGRA
         break;
     case NIVE_PIXEL_FORMAT_RGB8:
         bytes_per_pixel = 3;
@@ -360,6 +360,13 @@ std::optional<image::DecodedImage> PluginManager::convertImage(const NiveDecoded
 
     std::vector<uint8_t> pixels(total_size);
     std::memcpy(pixels.data(), src.pixels, total_size);
+
+    // Convert RGBA → BGRA by swapping R and B channels
+    if (src.format == NIVE_PIXEL_FORMAT_RGBA8) {
+        for (size_t i = 0; i < total_size; i += 4) {
+            std::swap(pixels[i], pixels[i + 2]);
+        }
+    }
 
     return image::DecodedImage(src.width, src.height, format, stride, std::move(pixels));
 }

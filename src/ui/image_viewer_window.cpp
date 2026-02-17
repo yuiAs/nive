@@ -142,7 +142,8 @@ void ImageViewerWindow::setImage(const archive::VirtualPath& path) {
     // Decode the image: try plugins first, then fall back to WIC
     auto* plugin_mgr = App::instance().plugins();
 
-    std::expected<image::DecodedImage, image::DecodeError> result;
+    std::expected<image::DecodedImage, image::DecodeError> result =
+        std::unexpected(image::DecodeError::UnsupportedFormat);
 
     if (path.is_in_archive()) {
         // Load from archive
@@ -162,9 +163,11 @@ void ImageViewerWindow::setImage(const archive::VirtualPath& path) {
             std::transform(ext.begin(), ext.end(), ext.begin(), [](char c) {
                 return static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
             });
-            auto plugin_result = plugin_mgr->decode(data->data(), data->size(), ext);
-            if (plugin_result) {
-                result = std::move(*plugin_result);
+            if (plugin_mgr->supportsExtension(ext)) {
+                auto plugin_result = plugin_mgr->decode(data->data(), data->size(), ext);
+                if (plugin_result) {
+                    result = std::move(*plugin_result);
+                }
             }
         }
 

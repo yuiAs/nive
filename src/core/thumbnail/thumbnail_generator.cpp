@@ -248,7 +248,8 @@ void ThumbnailGenerator::processRequest(ThumbnailRequest& request, image::WicDec
     }
 
     // Decode image: try plugins first, then fall back to WIC
-    std::expected<image::DecodedImage, image::DecodeError> decode_result;
+    std::expected<image::DecodedImage, image::DecodeError> decode_result =
+        std::unexpected(image::DecodeError::UnsupportedFormat);
 
     if (plugins_) {
         std::string ext = request.source.path.extension().string();
@@ -256,14 +257,14 @@ void ThumbnailGenerator::processRequest(ThumbnailRequest& request, image::WicDec
             return static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
         });
 
-        if (request.source.memory_data) {
+        if (request.source.memory_data && plugins_->supportsExtension(ext)) {
             auto plugin_result = plugins_->decode(
                 request.source.memory_data->data(),
                 request.source.memory_data->size(), ext);
             if (plugin_result) {
                 decode_result = std::move(*plugin_result);
             }
-        } else if (plugins_->supportsExtension(ext)) {
+        } else if (!request.source.memory_data && plugins_->supportsExtension(ext)) {
             // Read file into memory for plugin decode
             std::ifstream file(request.source.path, std::ios::binary | std::ios::ate);
             if (file) {

@@ -101,8 +101,13 @@ private:
     void clampScroll();
     void centerImage();
     void createMenu();
+    void createStatusBar();
+    void updateStatusBar();
     void onCommand(WORD id);
     void updateMenuCheck();
+
+    /// @brief Get the image display area (client rect minus status bar)
+    [[nodiscard]] RECT getImageAreaRect() const;
 
     /// @brief Calculate zoom factor based on current display mode
     [[nodiscard]] float calculateFitZoom(int image_width, int image_height, int view_width,
@@ -111,6 +116,7 @@ private:
     HWND hwnd_ = nullptr;
     HINSTANCE hinstance_ = nullptr;
     HMENU menu_ = nullptr;
+    HWND status_bar_ = nullptr;
 
     // D2D rendering
     d2d::DeviceResources device_resources_;
@@ -138,6 +144,9 @@ private:
     static constexpr float kMinZoom = 0.1f;    // 10%
     static constexpr float kMaxZoom = 32.0f;   // 3200%
     static constexpr float kZoomStep = 1.25f;  // 25% per step
+
+    // Control IDs
+    static constexpr int kIdStatusBar = 200;
 
     // Menu IDs
     static constexpr WORD kIdFileExit = 1001;

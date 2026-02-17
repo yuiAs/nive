@@ -3,6 +3,7 @@
 
 #include "image_viewer_window.hpp"
 
+#include <CommCtrl.h>
 #include <windowsx.h>
 
 #include <algorithm>
@@ -181,6 +182,7 @@ void ImageViewerWindow::setImage(const archive::VirtualPath& path) {
     }
 
     updateTitle();
+    updateStatusBar();
 
     if (hwnd_) {
         InvalidateRect(hwnd_, nullptr, FALSE);
@@ -410,9 +412,13 @@ LRESULT ImageViewerWindow::handleMessage(UINT msg, WPARAM wParam, LPARAM lParam)
 
 void ImageViewerWindow::onCreate() {
     createMenu();
+    createStatusBar();
 }
 
 void ImageViewerWindow::onSize(int width, int height) {
+    if (status_bar_) {
+        SendMessageW(status_bar_, WM_SIZE, 0, 0);
+    }
     if (width > 0 && height > 0) {
         device_resources_.resize(static_cast<uint32_t>(width), static_cast<uint32_t>(height));
     }
@@ -498,10 +504,9 @@ void ImageViewerWindow::onMouseWheel(int delta, int x, int y) {
     POINT pt = {x, y};
     ScreenToClient(hwnd_, &pt);
 
-    RECT client;
-    GetClientRect(hwnd_, &client);
+    auto client = getImageAreaRect();
 
-    // Only zoom if mouse is in client area
+    // Only zoom if mouse is in image area
     if (!PtInRect(&client, pt)) {
         return;
     }
@@ -609,9 +614,9 @@ void ImageViewerWindow::render() {
     rt->Clear(D2D1::ColorF(D2D1::ColorF::Black));
 
     if (bitmap_ && image_ && image_->valid()) {
-        auto size = device_resources_.getSize();
-        float view_w = size.width;
-        float view_h = size.height;
+        auto image_rect = getImageAreaRect();
+        float view_w = static_cast<float>(image_rect.right - image_rect.left);
+        float view_h = static_cast<float>(image_rect.bottom - image_rect.top);
         float img_w = static_cast<float>(image_->width());
         float img_h = static_cast<float>(image_->height());
 
@@ -680,8 +685,7 @@ void ImageViewerWindow::updateTitle() {
         if (display_mode_ == config::ViewerDisplayMode::Original) {
             zoom_percent = static_cast<int>(zoom_ * 100 + 0.5f);
         } else {
-            RECT client;
-            GetClientRect(hwnd_, &client);
+            auto client = getImageAreaRect();
             int view_w = client.right - client.left;
             int view_h = client.bottom - client.top;
             float fit_zoom = calculateFitZoom(w, h, view_w, view_h);
@@ -722,8 +726,7 @@ void ImageViewerWindow::clampScroll() {
         return;
     }
 
-    RECT client;
-    GetClientRect(hwnd_, &client);
+    auto client = getImageAreaRect();
     int view_w = client.right - client.left;
     int view_h = client.bottom - client.top;
 
@@ -758,8 +761,7 @@ void ImageViewerWindow::centerImage() {
         return;
     }
 
-    RECT client;
-    GetClientRect(hwnd_, &client);
+    auto client = getImageAreaRect();
     int view_w = client.right - client.left;
     int view_h = client.bottom - client.top;
 
@@ -891,6 +893,74 @@ void ImageViewerWindow::updateMenuCheck() {
         menu_, kIdViewShrinkToFit,
         MF_BYCOMMAND |
             (display_mode_ == config::ViewerDisplayMode::ShrinkToFit ? MF_CHECKED : MF_UNCHECKED));
+}
+
+void ImageViewerWindow::createStatusBar() {
+    status_bar_ = CreateWindowExW(
+        0, STATUSCLASSNAMEW, nullptr, WS_CHILD | WS_VISIBLE, 0, 0, 0, 0, hwnd_,
+        reinterpret_cast<HMENU>(static_cast<intptr_t>(kIdStatusBar)), hinstance_, nullptr);
+
+    if (!status_bar_) {
+        return;
+    }
+
+    // Single part spanning the full width
+    int parts[] = {-1};
+    SendMessageW(status_bar_, SB_SETPARTS, 1, reinterpret_cast<LPARAM>(parts));
+}
+
+void ImageViewerWindow::updateStatusBar() {
+    if (!status_bar_) {
+        return;
+    }
+
+    if (current_path_.empty()) {
+        SendMessageW(status_bar_, SB_SETTEXTW, 0, reinterpret_cast<LPARAM>(L""));
+        return;
+    }
+
+    // Look up file metadata from current directory listing
+    std::wstring filename = current_path_.filename();
+    auto files = App::instance().state().files();
+
+    for (const auto& file : files) {
+        if (file.name == filename) {
+            // Format modified time (same format as FileListView: %Y-%m-%d %H:%M)
+            auto tt = std::chrono::system_clock::to_time_t(file.modified_time);
+            std::tm tm_buf;
+            localtime_s(&tm_buf, &tt);
+
+            wchar_t date_buf[64];
+            std::wcsftime(date_buf, sizeof(date_buf) / sizeof(wchar_t), L"%Y-%m-%d %H:%M",
+                          &tm_buf);
+
+            auto text =
+                std::vformat(i18n::tr("viewer.status.modified_date"),
+                             std::make_wformat_args(date_buf));
+            SendMessageW(status_bar_, SB_SETTEXTW, 0, reinterpret_cast<LPARAM>(text.c_str()));
+            return;
+        }
+    }
+
+    // File not found in listing
+    SendMessageW(status_bar_, SB_SETTEXTW, 0, reinterpret_cast<LPARAM>(L""));
+}
+
+RECT ImageViewerWindow::getImageAreaRect() const {
+    RECT rc = {};
+    if (hwnd_) {
+        GetClientRect(hwnd_, &rc);
+        if (status_bar_) {
+            RECT sb_rc;
+            GetWindowRect(status_bar_, &sb_rc);
+            int sb_height = sb_rc.bottom - sb_rc.top;
+            rc.bottom -= sb_height;
+            if (rc.bottom < 0) {
+                rc.bottom = 0;
+            }
+        }
+    }
+    return rc;
 }
 
 }  // namespace nive::ui

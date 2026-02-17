@@ -85,6 +85,14 @@ public:
     /// @param image Image to free
     void freeImage(NiveDecodedImage& image) const;
 
+    /// @brief Check if plugin has a settings dialog
+    [[nodiscard]] bool hasSettings() const noexcept;
+
+    /// @brief Show plugin settings dialog
+    /// @param parent_hwnd Parent window handle
+    /// @return NIVE_PLUGIN_OK on success, error code on failure
+    NivePluginError showSettings(void* parent_hwnd) const;
+
     /// @brief Check if plugin is valid/loaded
     [[nodiscard]] bool valid() const noexcept { return module_ != nullptr; }
     [[nodiscard]] operator bool() const noexcept { return valid(); }
@@ -111,6 +119,8 @@ private:
     NivePluginFreeImageFn free_image_fn_ = nullptr;
     NivePluginInitFn init_fn_ = nullptr;
     NivePluginShutdownFn shutdown_fn_ = nullptr;
+    NivePluginHasSettingsFn has_settings_fn_ = nullptr;
+    NivePluginShowSettingsFn show_settings_fn_ = nullptr;
 };
 
 }  // namespace nive::plugin

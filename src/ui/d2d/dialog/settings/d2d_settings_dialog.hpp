@@ -63,6 +63,7 @@ private:
     std::unique_ptr<D2DContainerComponent> createCacheTab();
     std::unique_ptr<D2DContainerComponent> createSortingTab();
     std::unique_ptr<D2DContainerComponent> createNetworkTab();
+    std::unique_ptr<D2DContainerComponent> createPluginsTab();
 
     // Tab layout
     void layoutGeneralTab();
@@ -70,6 +71,7 @@ private:
     void layoutCacheTab();
     void layoutSortingTab();
     void layoutNetworkTab();
+    void layoutPluginsTab();
 
     // Settings management
     void populateFromSettings();
@@ -141,6 +143,23 @@ private:
     D2DListBox* network_list_ = nullptr;
     D2DButton* network_add_ = nullptr;
     D2DButton* network_remove_ = nullptr;
+
+    // Plugins tab components
+    D2DLabel* plugins_label_ = nullptr;
+    D2DListBox* plugins_list_ = nullptr;
+    D2DCheckBox* plugins_enabled_ = nullptr;
+    D2DLabel* plugins_detail_ = nullptr;
+
+    struct PluginState {
+        std::string name;
+        std::string description;
+        std::string author;
+        std::string version;
+        std::vector<std::string> extensions;
+        bool enabled;
+        bool has_settings;
+    };
+    std::vector<PluginState> plugin_states_;
 
     // Active popup (for dropdown rendering)
     D2DComboBox* active_popup_ = nullptr;

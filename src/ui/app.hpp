@@ -13,6 +13,7 @@
 #include "core/archive/archive_manager.hpp"
 #include "core/cache/cache_manager.hpp"
 #include "core/config/settings.hpp"
+#include "core/plugin/plugin_manager.hpp"
 #include "core/thumbnail/thumbnail_generator.hpp"
 #include "core/thumbnail/thumbnail_request.hpp"
 #include "state/app_state.hpp"
@@ -68,6 +69,9 @@ public:
 
     /// @brief Get thumbnail generator
     [[nodiscard]] thumbnail::ThumbnailGenerator* thumbnails() noexcept { return thumbnails_.get(); }
+
+    /// @brief Get plugin manager
+    [[nodiscard]] plugin::PluginManager* plugins() noexcept { return plugins_.get(); }
 
     /// @brief Get main window handle
     [[nodiscard]] HWND mainHwnd() const noexcept;
@@ -126,6 +130,7 @@ private:
     std::unique_ptr<cache::CacheManager> cache_;
     std::unique_ptr<archive::ArchiveManager> archive_;
     std::unique_ptr<thumbnail::ThumbnailGenerator> thumbnails_;
+    std::unique_ptr<plugin::PluginManager> plugins_;
 
     // Thread-safe queue for thumbnail results from worker threads
     mutable std::mutex thumbnail_queue_mutex_;

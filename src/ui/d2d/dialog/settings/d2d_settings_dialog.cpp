@@ -10,6 +10,7 @@
 
 #include "core/config/settings_manager.hpp"
 #include "core/i18n/i18n.hpp"
+#include "ui/app.hpp"
 #include "ui/d2d/core/d2d_factory.hpp"
 
 namespace nive::ui::d2d {
@@ -97,6 +98,7 @@ void D2DSettingsDialog::createComponents() {
     tabs->addTab(i18n::tr("dialog.settings.tab.cache"), createCacheTab());
     tabs->addTab(i18n::tr("dialog.settings.tab.sorting"), createSortingTab());
     tabs->addTab(i18n::tr("dialog.settings.tab.network"), createNetworkTab());
+    tabs->addTab(i18n::tr("dialog.settings.tab.plugins"), createPluginsTab());
     tabs->setSelectedIndex(0);
 
     addChild(std::move(tabs));
@@ -407,6 +409,83 @@ std::unique_ptr<D2DContainerComponent> D2DSettingsDialog::createNetworkTab() {
     return container;
 }
 
+std::unique_ptr<D2DContainerComponent> D2DSettingsDialog::createPluginsTab() {
+    auto container = std::make_unique<D2DPanel>();
+
+    // Label
+    auto lbl = std::make_unique<D2DLabel>(i18n::tr("dialog.settings.plugins.installed"));
+    lbl->createResources(deviceResources());
+    plugins_label_ = lbl.get();
+    container->addChild(std::move(lbl));
+
+    // List box
+    auto list = std::make_unique<D2DListBox>();
+    list->createResources(deviceResources());
+    list->onSelectionChanged([this](int index) {
+        if (index >= 0 && static_cast<size_t>(index) < plugin_states_.size()) {
+            auto& state = plugin_states_[static_cast<size_t>(index)];
+            plugins_enabled_->setChecked(state.enabled);
+            plugins_enabled_->setEnabled(true);
+
+            // Build detail text
+            std::wstring detail;
+            if (!state.author.empty()) {
+                std::wstring author_w = toWstring(state.author);
+                detail += std::vformat(i18n::tr("dialog.settings.plugins.author"),
+                                       std::make_wformat_args(author_w));
+            }
+            if (!state.version.empty()) {
+                if (!detail.empty()) detail += L"  |  ";
+                std::wstring version_w = toWstring(state.version);
+                detail += std::vformat(i18n::tr("dialog.settings.plugins.version"),
+                                       std::make_wformat_args(version_w));
+            }
+            if (!state.extensions.empty()) {
+                std::string ext_str;
+                for (size_t i = 0; i < state.extensions.size(); ++i) {
+                    if (i > 0) ext_str += ", ";
+                    ext_str += state.extensions[i];
+                }
+                if (!detail.empty()) detail += L"\n";
+                std::wstring ext_w = toWstring(ext_str);
+                detail += std::vformat(i18n::tr("dialog.settings.plugins.extensions"),
+                                       std::make_wformat_args(ext_w));
+            }
+            if (plugins_detail_) {
+                plugins_detail_->setText(detail);
+            }
+        } else {
+            plugins_enabled_->setEnabled(false);
+            if (plugins_detail_) {
+                plugins_detail_->setText(L"");
+            }
+        }
+    });
+    plugins_list_ = list.get();
+    container->addChild(std::move(list));
+
+    // Enable checkbox
+    auto cb = std::make_unique<D2DCheckBox>(i18n::tr("dialog.settings.plugins.enable"));
+    cb->createResources(deviceResources());
+    cb->setEnabled(false);
+    cb->onChange([this](bool checked) {
+        int sel = plugins_list_->selectedIndex();
+        if (sel >= 0 && static_cast<size_t>(sel) < plugin_states_.size()) {
+            plugin_states_[static_cast<size_t>(sel)].enabled = checked;
+        }
+    });
+    plugins_enabled_ = cb.get();
+    container->addChild(std::move(cb));
+
+    // Detail label
+    auto detail = std::make_unique<D2DLabel>(L"");
+    detail->createResources(deviceResources());
+    plugins_detail_ = detail.get();
+    container->addChild(std::move(detail));
+
+    return container;
+}
+
 void D2DSettingsDialog::layoutComponents() {
     if (!tab_control_)
         return;
@@ -435,6 +514,7 @@ void D2DSettingsDialog::layoutComponents() {
     layoutCacheTab();
     layoutSortingTab();
     layoutNetworkTab();
+    layoutPluginsTab();
 }
 
 void D2DSettingsDialog::layoutGeneralTab() {
@@ -621,6 +701,36 @@ void D2DSettingsDialog::layoutNetworkTab() {
         Rect{button_x, y + button_height + spacing, button_width, button_height});
 }
 
+void D2DSettingsDialog::layoutPluginsTab() {
+    if (!plugins_label_)
+        return;
+
+    Rect content = tab_control_->contentArea();
+    float padding = 15.0f;
+    float item_height = 24.0f;
+    float spacing = 8.0f;
+
+    float y = content.y + padding;
+    float label_x = content.x + padding;
+
+    plugins_label_->arrange(Rect{label_x, y, 200.0f, item_height});
+    y += item_height + spacing;
+
+    // List takes upper portion
+    float list_height = 120.0f;
+    plugins_list_->arrange(Rect{label_x, y, content.width - padding * 2, list_height});
+    y += list_height + spacing;
+
+    // Enable checkbox
+    plugins_enabled_->arrange(Rect{label_x, y, 200.0f, item_height});
+    y += item_height + spacing;
+
+    // Detail label (multi-line area)
+    float detail_height = content.height - (y - content.y) - padding;
+    if (detail_height < item_height) detail_height = item_height;
+    plugins_detail_->arrange(Rect{label_x, y, content.width - padding * 2, detail_height});
+}
+
 void D2DSettingsDialog::populateFromSettings() {
     if (!settings_)
         return;
@@ -714,6 +824,37 @@ void D2DSettingsDialog::populateFromSettings() {
     for (const auto& share : settings_->network_shares) {
         network_list_->addItem(toWstring(share));
     }
+
+    // Plugins tab
+    plugin_states_.clear();
+    plugins_list_->clearItems();
+    auto* plugin_mgr = nive::ui::App::instance().plugins();
+    if (plugin_mgr) {
+        auto plugins = plugin_mgr->listPlugins();
+        for (const auto& p : plugins) {
+            PluginState state;
+            state.name = p.name;
+            state.description = p.description;
+            state.author = p.author;
+            state.version = p.version;
+            state.extensions = p.extensions;
+            state.has_settings = p.has_settings;
+            // Check if this plugin is in the disabled list
+            bool disabled = false;
+            for (const auto& d : settings_->plugins.disabled_plugins) {
+                if (d == p.name) {
+                    disabled = true;
+                    break;
+                }
+            }
+            state.enabled = !disabled;
+            plugin_states_.push_back(std::move(state));
+            plugins_list_->addItem(toWstring(p.name));
+        }
+    }
+    if (plugin_states_.empty() && plugins_detail_) {
+        plugins_detail_->setText(std::wstring(i18n::tr("dialog.settings.plugins.no_plugins")));
+    }
 }
 
 bool D2DSettingsDialog::validateAndSave() {
@@ -790,6 +931,14 @@ bool D2DSettingsDialog::validateAndSave() {
     settings_->network_shares.clear();
     for (size_t i = 0; i < network_list_->itemCount(); ++i) {
         settings_->network_shares.push_back(toString(network_list_->itemAt(i)));
+    }
+
+    // Plugins tab - build disabled list from unchecked plugins
+    settings_->plugins.disabled_plugins.clear();
+    for (const auto& state : plugin_states_) {
+        if (!state.enabled) {
+            settings_->plugins.disabled_plugins.push_back(state.name);
+        }
     }
 
     // Validate
@@ -926,6 +1075,16 @@ void D2DSettingsDialog::recreateAllComponentResources() {
         network_add_->createResources(res);
     if (network_remove_)
         network_remove_->createResources(res);
+
+    // Plugins tab
+    if (plugins_label_)
+        plugins_label_->createResources(res);
+    if (plugins_list_)
+        plugins_list_->createResources(res);
+    if (plugins_enabled_)
+        plugins_enabled_->createResources(res);
+    if (plugins_detail_)
+        plugins_detail_->createResources(res);
 }
 
 void D2DSettingsDialog::updateActiveTabResources() {
@@ -997,6 +1156,14 @@ void D2DSettingsDialog::updateActiveTabResources() {
             network_add_->createResources(res);
         if (network_remove_)
             network_remove_->createResources(res);
+        break;
+    case 5:  // Plugins
+        if (plugins_list_)
+            plugins_list_->createResources(res);
+        if (plugins_enabled_)
+            plugins_enabled_->createResources(res);
+        if (plugins_detail_)
+            plugins_detail_->createResources(res);
         break;
     }
 }

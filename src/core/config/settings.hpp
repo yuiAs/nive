@@ -258,6 +258,11 @@ struct SortSettings {
     }
 };
 
+/// @brief Plugin settings
+struct PluginSettings {
+    std::vector<std::string> disabled_plugins;  // Plugin names to not load
+};
+
 /// @brief Application settings
 struct Settings {
     // Thumbnail settings
@@ -293,6 +298,9 @@ struct Settings {
 
     // Last directory (for restoring previous session)
     std::filesystem::path last_directory;
+
+    // Plugin settings
+    PluginSettings plugins;
 
     // Language setting ("auto" = system detection, or explicit tag like "en", "ja")
     std::string language = "auto";

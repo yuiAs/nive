@@ -221,8 +221,17 @@ std::optional<image::DecodedImage> PluginManager::decode(const uint8_t* data, si
                                                          const std::string& extension) const {
     std::lock_guard lock(mutex_);
 
-    // Find plugins that support this extension
-    auto decoders = findDecoders(extension);
+    // Find plugins that support this extension (inline to avoid double-lock)
+    std::string ext = extension;
+    std::transform(ext.begin(), ext.end(), ext.begin(), [](char c) {
+        return static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+    });
+
+    std::vector<std::string> decoders;
+    auto map_it = extensionMap_.find(ext);
+    if (map_it != extensionMap_.end()) {
+        decoders = map_it->second;
+    }
 
     // Try each decoder
     for (const auto& name : decoders) {
@@ -298,6 +307,7 @@ PluginInfo PluginManager::make_plugin_info(const PluginLoader& loader) const {
     PluginInfo info;
     info.path = loader.path();
     info.loaded = true;
+    info.has_settings = loader.hasSettings();
 
     const NivePluginInfo* plugin_info = loader.info();
     if (plugin_info) {

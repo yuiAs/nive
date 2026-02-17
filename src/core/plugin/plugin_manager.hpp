@@ -30,6 +30,7 @@ struct PluginInfo {
     std::filesystem::path path;
     std::vector<std::string> extensions;
     bool loaded = false;
+    bool has_settings = false;
 };
 
 /// @brief Manages plugin discovery, loading, and lifecycle
@@ -118,7 +119,7 @@ private:
     convertImage(const NiveDecodedImage& src) const;
 
     PluginManagerConfig config_;
-    mutable std::mutex mutex_;
+    mutable std::recursive_mutex mutex_;
 
     // Loaded plugins indexed by name
     std::unordered_map<std::string, std::unique_ptr<PluginLoader>> plugins_;

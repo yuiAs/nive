@@ -182,6 +182,19 @@ Settings parse_settings(const toml::table& tbl) {
         }
     }
 
+    // Plugin settings
+    if (auto* plugins = tbl["plugins"].as_table()) {
+        if (auto* disabled = plugins->get("disabled")) {
+            if (auto* arr = disabled->as_array()) {
+                for (const auto& item : *arr) {
+                    if (auto* str = item.as_string()) {
+                        settings.plugins.disabled_plugins.push_back(str->get());
+                    }
+                }
+            }
+        }
+    }
+
     // Language setting
     settings.language = get_nested_or<std::string>(tbl, "i18n", "language", "auto");
 
@@ -291,6 +304,15 @@ toml::table serialize_settings(const Settings& settings) {
         tbl.insert("state", toml::table{
                                 {"last_directory", to_utf8(settings.last_directory.wstring())},
         });
+    }
+
+    // Plugin settings
+    if (!settings.plugins.disabled_plugins.empty()) {
+        toml::array disabled_arr;
+        for (const auto& name : settings.plugins.disabled_plugins) {
+            disabled_arr.push_back(name);
+        }
+        tbl.insert("plugins", toml::table{{"disabled", std::move(disabled_arr)}});
     }
 
     // Language setting
@@ -474,6 +496,20 @@ std::expected<void, ConfigError> SettingsManager::saveTo(const Settings& setting
             file << "[state]\n";
             file << "last_directory = \"" << to_utf8(settings.last_directory.wstring()) << "\"\n";
             file << "\n";
+        }
+
+        // Plugin settings
+        if (!settings.plugins.disabled_plugins.empty()) {
+            file << "[plugins]\n";
+            file << "disabled = [\n";
+            for (size_t i = 0; i < settings.plugins.disabled_plugins.size(); ++i) {
+                file << "    \"" << settings.plugins.disabled_plugins[i] << "\"";
+                if (i + 1 < settings.plugins.disabled_plugins.size()) {
+                    file << ",";
+                }
+                file << "\n";
+            }
+            file << "]\n\n";
         }
 
         // Language setting

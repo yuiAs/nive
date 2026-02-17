@@ -98,6 +98,15 @@ typedef NivePluginError (*NivePluginInitFn)(void);
 /// Optional: Shutdown plugin (called once on unload)
 typedef void (*NivePluginShutdownFn)(void);
 
+/// Optional: Check if plugin has a settings dialog
+/// @return 1 if plugin has settings, 0 if not
+typedef int (*NivePluginHasSettingsFn)(void);
+
+/// Optional: Show plugin settings dialog
+/// @param parent_hwnd Parent window handle (HWND on Windows)
+/// @return NIVE_PLUGIN_OK on success, error code on failure
+typedef NivePluginError (*NivePluginShowSettingsFn)(void* parent_hwnd);
+
 // Function names for GetProcAddress
 #define NIVE_PLUGIN_GET_INFO_NAME "nive_plugin_get_info"
 #define NIVE_PLUGIN_CAN_DECODE_NAME "nive_plugin_can_decode"
@@ -105,6 +114,8 @@ typedef void (*NivePluginShutdownFn)(void);
 #define NIVE_PLUGIN_FREE_IMAGE_NAME "nive_plugin_free_image"
 #define NIVE_PLUGIN_INIT_NAME "nive_plugin_init"
 #define NIVE_PLUGIN_SHUTDOWN_NAME "nive_plugin_shutdown"
+#define NIVE_PLUGIN_HAS_SETTINGS_NAME "nive_plugin_has_settings"
+#define NIVE_PLUGIN_SHOW_SETTINGS_NAME "nive_plugin_show_settings"
 
 #ifdef __cplusplus
 }

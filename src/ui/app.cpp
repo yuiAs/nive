@@ -150,6 +150,11 @@ void App::shutdown() {
         thumbnails_->stop();
     }
 
+    // Shutdown plugin manager
+    if (plugins_) {
+        plugins_->shutdown();
+    }
+
     // Uninitialize OLE
     OleUninitialize();
 
@@ -247,6 +252,33 @@ bool App::initializeCore() {
     // Connect cache manager to thumbnail generator
     if (cache_) {
         thumbnails_->setCacheManager(cache_.get());
+    }
+
+    // Initialize plugin manager
+    {
+        wchar_t exe_path[MAX_PATH];
+        GetModuleFileNameW(nullptr, exe_path, MAX_PATH);
+        auto plugins_dir = std::filesystem::path(exe_path).parent_path() / L"plugins";
+
+        plugin::PluginManagerConfig plugin_config;
+        plugin_config.pluginsDirectory = plugins_dir;
+        plugin_config.auto_load = true;
+
+        plugins_ = std::make_unique<plugin::PluginManager>(plugin_config);
+        if (plugins_->initialize()) {
+            // Unload disabled plugins per settings
+            for (const auto& name : settings_.plugins.disabled_plugins) {
+                plugins_->unloadPlugin(name);
+            }
+            LOG_INFO("Plugin manager initialized: {} plugins loaded", plugins_->loadedCount());
+        } else {
+            LOG_WARN("Failed to initialize plugin manager");
+        }
+    }
+
+    // Connect plugin manager to thumbnail generator
+    if (plugins_ && thumbnails_) {
+        thumbnails_->setPluginManager(plugins_.get());
     }
 
     return true;

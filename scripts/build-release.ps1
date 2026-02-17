@@ -58,7 +58,7 @@ function Enter-DevShell {
     }
 
     Import-Module $devShellModule
-    Enter-VsDevShell $vsInstance.InstanceId -SkipAutomaticLocation
+    Enter-VsDevShell $vsInstance.InstanceId -SkipAutomaticLocation -DevCmdArguments "-arch=x64 -host_arch=x64"
 
     if (-not (Get-Command cl.exe -ErrorAction SilentlyContinue)) {
         throw "MSVC toolchain not available after DevShell setup."
@@ -69,20 +69,37 @@ function Enter-DevShell {
 # Build
 # ---------------------------------------------------------------------------
 function Invoke-Build {
-    Write-Host "[info] Configuring CMake (Release)..." -ForegroundColor Cyan
-    cmake -B "$ProjectRoot/build" -S $ProjectRoot
-    if ($LASTEXITCODE -ne 0) { throw "CMake configure failed." }
+    # --- App build ---
+    Write-Host "[info] Configuring App CMake (Release)..." -ForegroundColor Cyan
+    cmake --preset release -S $ProjectRoot
+    if ($LASTEXITCODE -ne 0) { throw "App CMake configure failed." }
 
-    Write-Host "[info] Building Release..." -ForegroundColor Cyan
-    cmake --build "$ProjectRoot/build" --config Release
-    if ($LASTEXITCODE -ne 0) { throw "Build failed." }
+    Write-Host "[info] Building App (Release)..." -ForegroundColor Cyan
+    cmake --build --preset release
+    if ($LASTEXITCODE -ne 0) { throw "App build failed." }
+
+    # --- Plugins build ---
+    $pluginsDir = Join-Path $ProjectRoot "plugins"
+    Push-Location $pluginsDir
+    try {
+        Write-Host "[info] Configuring Plugins CMake (Release)..." -ForegroundColor Cyan
+        cmake --preset release
+        if ($LASTEXITCODE -ne 0) { throw "Plugins CMake configure failed." }
+
+        Write-Host "[info] Building Plugins (Release)..." -ForegroundColor Cyan
+        cmake --build --preset release
+        if ($LASTEXITCODE -ne 0) { throw "Plugins build failed." }
+    } finally {
+        Pop-Location
+    }
 }
 
 # ---------------------------------------------------------------------------
 # Package
 # ---------------------------------------------------------------------------
 function New-Package {
-    $buildBin = Join-Path $ProjectRoot "build/bin/Release"
+    $appBuildBin     = Join-Path $ProjectRoot "build/release/bin"
+    $pluginsBuildBin = Join-Path $ProjectRoot "plugins/build/release/bin"
     $version  = (Select-String -Path "$ProjectRoot/CMakeLists.txt" -Pattern 'VERSION\s+(\d+\.\d+\.\d+)' |
                  Select-Object -First 1).Matches.Groups[1].Value
 
@@ -94,21 +111,30 @@ function New-Package {
     if (Test-Path $stagingDir) { Remove-Item $stagingDir -Recurse -Force }
     New-Item -ItemType Directory -Path $stagingDir -Force | Out-Null
 
-    # Copy artifacts
-    $exe = Join-Path $buildBin "nive.exe"
+    # Copy app executable
+    $exe = Join-Path $appBuildBin "nive.exe"
     if (-not (Test-Path $exe)) { throw "nive.exe not found at: $exe" }
     Copy-Item $exe $stagingDir
 
-    # # 7z.dll (optional runtime dependency)
-    # $sevenZipDll = Join-Path $buildBin "7z.dll"
-    # if (Test-Path $sevenZipDll) {
-    #     Copy-Item $sevenZipDll $stagingDir
-    # } else {
-    #     Write-Host "[warn] 7z.dll not found in build output. Archive support will require a system-wide 7-Zip installation." -ForegroundColor Yellow
-    # }
+    # Copy libavif runtime DLL (avif.dll)
+    $avifDll = Join-Path $pluginsBuildBin "avif.dll"
+    if (Test-Path $avifDll) {
+        Copy-Item $avifDll $stagingDir
+    } else {
+        Write-Host "[warn] avif.dll not found at: $avifDll" -ForegroundColor Yellow
+    }
 
     # plugins directory
-    New-Item -ItemType Directory -Path (Join-Path $stagingDir "plugins") -Force | Out-Null
+    $pluginsStagingDir = Join-Path $stagingDir "plugins"
+    New-Item -ItemType Directory -Path $pluginsStagingDir -Force | Out-Null
+
+    # Copy plugin DLLs
+    $niveAvifDll = Join-Path $pluginsBuildBin "plugins/nive_avif.dll"
+    if (Test-Path $niveAvifDll) {
+        Copy-Item $niveAvifDll $pluginsStagingDir
+    } else {
+        Write-Host "[warn] nive_avif.dll not found at: $niveAvifDll" -ForegroundColor Yellow
+    }
 
     # locales directory
     $localesDir = Join-Path $ProjectRoot "locales"

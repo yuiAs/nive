@@ -22,6 +22,10 @@ namespace nive::image {
 class WicDecoder;
 }
 
+namespace nive::plugin {
+class PluginManager;
+}
+
 namespace nive::thumbnail {
 
 /// @brief Configuration for thumbnail generator
@@ -129,6 +133,10 @@ public:
     /// @param cache Pointer to cache manager (can be nullptr to disable caching)
     void setCacheManager(cache::CacheManager* cache) noexcept;
 
+    /// @brief Set plugin manager for plugin-based decoding
+    /// @param plugins Pointer to plugin manager (can be nullptr to disable)
+    void setPluginManager(plugin::PluginManager* plugins) noexcept;
+
 private:
     /// @brief Worker thread function
     void workerThread(std::stop_token stop_token);
@@ -146,6 +154,7 @@ private:
     std::atomic<RequestId> next_id_{1};
     std::atomic<bool> running_{false};
     cache::CacheManager* cache_ = nullptr;
+    plugin::PluginManager* plugins_ = nullptr;
 };
 
 }  // namespace nive::thumbnail

@@ -74,6 +74,11 @@ endfunction()
 function(nive_configure_target target)
     set_target_warnings(${target})
 
+    # C++26 via /std:c++latest (applied per-target to avoid polluting externals)
+    if(MSVC)
+        target_compile_options(${target} PRIVATE /std:c++latest)
+    endif()
+
     # Set output directories
     set_target_properties(${target} PROPERTIES
         ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"

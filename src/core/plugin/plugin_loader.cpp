@@ -52,6 +52,8 @@ std::expected<PluginLoader, LoadError> PluginLoader::load(const std::filesystem:
     // Get optional function pointers
     loader.init_fn_ = loader.getProc<NivePluginInitFn>(NIVE_PLUGIN_INIT_NAME);
     loader.shutdown_fn_ = loader.getProc<NivePluginShutdownFn>(NIVE_PLUGIN_SHUTDOWN_NAME);
+    loader.has_settings_fn_ = loader.getProc<NivePluginHasSettingsFn>(NIVE_PLUGIN_HAS_SETTINGS_NAME);
+    loader.show_settings_fn_ = loader.getProc<NivePluginShowSettingsFn>(NIVE_PLUGIN_SHOW_SETTINGS_NAME);
 
     // Get plugin info
     loader.info_ = loader.get_info_fn_();
@@ -95,7 +97,8 @@ PluginLoader::PluginLoader(PluginLoader&& other) noexcept
     : module_(other.module_), path_(std::move(other.path_)), info_(other.info_),
       get_info_fn_(other.get_info_fn_), can_decode_fn_(other.can_decode_fn_),
       decode_fn_(other.decode_fn_), free_image_fn_(other.free_image_fn_), init_fn_(other.init_fn_),
-      shutdown_fn_(other.shutdown_fn_) {
+      shutdown_fn_(other.shutdown_fn_), has_settings_fn_(other.has_settings_fn_),
+      show_settings_fn_(other.show_settings_fn_) {
     other.module_ = nullptr;
     other.info_ = nullptr;
     other.get_info_fn_ = nullptr;
@@ -104,6 +107,8 @@ PluginLoader::PluginLoader(PluginLoader&& other) noexcept
     other.free_image_fn_ = nullptr;
     other.init_fn_ = nullptr;
     other.shutdown_fn_ = nullptr;
+    other.has_settings_fn_ = nullptr;
+    other.show_settings_fn_ = nullptr;
 }
 
 PluginLoader& PluginLoader::operator=(PluginLoader&& other) noexcept {
@@ -126,6 +131,8 @@ PluginLoader& PluginLoader::operator=(PluginLoader&& other) noexcept {
         free_image_fn_ = other.free_image_fn_;
         init_fn_ = other.init_fn_;
         shutdown_fn_ = other.shutdown_fn_;
+        has_settings_fn_ = other.has_settings_fn_;
+        show_settings_fn_ = other.show_settings_fn_;
 
         // Clear other
         other.module_ = nullptr;
@@ -136,6 +143,8 @@ PluginLoader& PluginLoader::operator=(PluginLoader&& other) noexcept {
         other.free_image_fn_ = nullptr;
         other.init_fn_ = nullptr;
         other.shutdown_fn_ = nullptr;
+        other.has_settings_fn_ = nullptr;
+        other.show_settings_fn_ = nullptr;
     }
     return *this;
 }
@@ -169,6 +178,17 @@ void PluginLoader::freeImage(NiveDecodedImage& image) const {
         free_image_fn_(&image);
         image.pixels = nullptr;
     }
+}
+
+bool PluginLoader::hasSettings() const noexcept {
+    return has_settings_fn_ && has_settings_fn_() != 0;
+}
+
+NivePluginError PluginLoader::showSettings(void* parent_hwnd) const {
+    if (!show_settings_fn_) {
+        return NIVE_PLUGIN_ERROR_UNSUPPORTED_FORMAT;
+    }
+    return show_settings_fn_(parent_hwnd);
 }
 
 }  // namespace nive::plugin

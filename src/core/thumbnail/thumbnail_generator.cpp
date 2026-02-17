@@ -7,10 +7,12 @@
 #include <objbase.h>
 
 #include <chrono>
+#include <fstream>
 
 #include "../cache/cache_manager.hpp"
 #include "../image/image_scaler.hpp"
 #include "../image/wic_decoder.hpp"
+#include "../plugin/plugin_manager.hpp"
 #include "../util/logger.hpp"
 
 namespace nive::thumbnail {
@@ -137,6 +139,10 @@ void ThumbnailGenerator::setCacheManager(cache::CacheManager* cache) noexcept {
     cache_ = cache;
 }
 
+void ThumbnailGenerator::setPluginManager(plugin::PluginManager* plugins) noexcept {
+    plugins_ = plugins;
+}
+
 void ThumbnailGenerator::workerThread(std::stop_token stop_token) {
     auto thread_id = GetCurrentThreadId();
     LOG_DEBUG("workerThread[{}]: starting", thread_id);
@@ -241,15 +247,46 @@ void ThumbnailGenerator::processRequest(ThumbnailRequest& request, image::WicDec
         }
     }
 
-    // Decode image
+    // Decode image: try plugins first, then fall back to WIC
     std::expected<image::DecodedImage, image::DecodeError> decode_result;
 
-    if (request.source.memory_data) {
-        // Decode from memory
-        decode_result = decoder.decodeFromMemory(*request.source.memory_data);
-    } else {
-        // Decode from file
-        decode_result = decoder.decode(request.source.path);
+    if (plugins_) {
+        std::string ext = request.source.path.extension().string();
+        std::transform(ext.begin(), ext.end(), ext.begin(), [](char c) {
+            return static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+        });
+
+        if (request.source.memory_data) {
+            auto plugin_result = plugins_->decode(
+                request.source.memory_data->data(),
+                request.source.memory_data->size(), ext);
+            if (plugin_result) {
+                decode_result = std::move(*plugin_result);
+            }
+        } else if (plugins_->supportsExtension(ext)) {
+            // Read file into memory for plugin decode
+            std::ifstream file(request.source.path, std::ios::binary | std::ios::ate);
+            if (file) {
+                auto file_size = file.tellg();
+                file.seekg(0, std::ios::beg);
+                std::vector<uint8_t> data(static_cast<size_t>(file_size));
+                if (file.read(reinterpret_cast<char*>(data.data()), file_size)) {
+                    auto plugin_result = plugins_->decode(data.data(), data.size(), ext);
+                    if (plugin_result) {
+                        decode_result = std::move(*plugin_result);
+                    }
+                }
+            }
+        }
+    }
+
+    // Fallback to WIC if plugin decode failed
+    if (!decode_result) {
+        if (request.source.memory_data) {
+            decode_result = decoder.decodeFromMemory(*request.source.memory_data);
+        } else {
+            decode_result = decoder.decode(request.source.path);
+        }
     }
 
     if (!decode_result) {

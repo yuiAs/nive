@@ -79,6 +79,7 @@ thumbnails = "Thumbnails"
 cache = "Cache"
 sorting = "Sorting"
 network = "Network"
+plugins = "Plugins"
 
 [dialog.settings.general]
 startup_directory = "Startup Directory"
@@ -125,6 +126,14 @@ label = "Network share paths:"
 add = "Add..."
 remove = "Remove"
 select_share = "Select Network Share"
+
+[dialog.settings.plugins]
+installed = "Installed Plugins:"
+enable = "Enable"
+author = "Author: {}"
+version = "Version: {}"
+extensions = "Supported: {}"
+no_plugins = "No plugins found in plugins directory."
 
 [dialog.settings.validation]
 invalid_settings = "Invalid settings:\n"

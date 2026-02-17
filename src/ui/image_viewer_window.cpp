@@ -8,6 +8,7 @@
 
 #include <algorithm>
 #include <format>
+#include <fstream>
 
 #include "app.hpp"
 #include "core/i18n/i18n.hpp"
@@ -138,11 +139,8 @@ void ImageViewerWindow::setImage(const archive::VirtualPath& path) {
         return;
     }
 
-    // Decode the image
-    image::WicDecoder decoder;
-    if (!decoder.isAvailable()) {
-        return;
-    }
+    // Decode the image: try plugins first, then fall back to WIC
+    auto* plugin_mgr = App::instance().plugins();
 
     std::expected<image::DecodedImage, image::DecodeError> result;
 
@@ -158,10 +156,54 @@ void ImageViewerWindow::setImage(const archive::VirtualPath& path) {
             return;
         }
 
-        result = decoder.decodeFromMemory(*data);
+        // Try plugin decode first
+        if (plugin_mgr) {
+            std::string ext = std::filesystem::path(path.filename()).extension().string();
+            std::transform(ext.begin(), ext.end(), ext.begin(), [](char c) {
+                return static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+            });
+            auto plugin_result = plugin_mgr->decode(data->data(), data->size(), ext);
+            if (plugin_result) {
+                result = std::move(*plugin_result);
+            }
+        }
+
+        // Fallback to WIC
+        if (!result) {
+            image::WicDecoder decoder;
+            if (decoder.isAvailable()) {
+                result = decoder.decodeFromMemory(*data);
+            }
+        }
     } else {
-        // Load from filesystem
-        result = decoder.decode(path.archive_path());
+        std::string ext = path.archive_path().extension().string();
+        std::transform(ext.begin(), ext.end(), ext.begin(), [](char c) {
+            return static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+        });
+
+        // Try plugin decode first (read file into memory)
+        if (plugin_mgr && plugin_mgr->supportsExtension(ext)) {
+            std::ifstream file(path.archive_path(), std::ios::binary | std::ios::ate);
+            if (file) {
+                auto file_size = file.tellg();
+                file.seekg(0, std::ios::beg);
+                std::vector<uint8_t> data(static_cast<size_t>(file_size));
+                if (file.read(reinterpret_cast<char*>(data.data()), file_size)) {
+                    auto plugin_result = plugin_mgr->decode(data.data(), data.size(), ext);
+                    if (plugin_result) {
+                        result = std::move(*plugin_result);
+                    }
+                }
+            }
+        }
+
+        // Fallback to WIC
+        if (!result) {
+            image::WicDecoder decoder;
+            if (decoder.isAvailable()) {
+                result = decoder.decode(path.archive_path());
+            }
+        }
     }
 
     if (result) {

@@ -197,6 +197,7 @@ private:
     // Drag state
     bool drag_pending_ = false;
     POINT drag_start_point_ = {0, 0};
+    size_t deferred_select_index_ = SIZE_MAX;  // Deferred single-select on button up
     static constexpr int kDragThreshold = 5;
 
     // Custom scrollbar state

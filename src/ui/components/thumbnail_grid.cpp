@@ -263,6 +263,11 @@ LRESULT ThumbnailGrid::handleMessage(UINT msg, WPARAM wParam, LPARAM lParam) {
             ReleaseCapture();
             InvalidateRect(hwnd_, nullptr, FALSE);
         }
+        // Apply deferred single-selection (click on already-selected item without drag)
+        if (deferred_select_index_ != SIZE_MAX) {
+            selectSingle(deferred_select_index_);
+            deferred_select_index_ = SIZE_MAX;
+        }
         drag_pending_ = false;
         return 0;
 
@@ -497,9 +502,11 @@ void ThumbnailGrid::onLbuttondown(int x, int y, WPARAM keys) {
     drag_pending_ = true;
     drag_start_point_.x = x;
     drag_start_point_.y = y;
+    deferred_select_index_ = SIZE_MAX;
 
     bool ctrl = (keys & MK_CONTROL) != 0;
     bool shift = (keys & MK_SHIFT) != 0;
+    bool already_selected = (index < selected_.size() && selected_[index]);
 
     if (shift && anchor_index_ != SIZE_MAX) {
         // Range selection
@@ -519,6 +526,10 @@ void ThumbnailGrid::onLbuttondown(int x, int y, WPARAM keys) {
         selected_[index] = !selected_[index];
         focused_index_ = index;
         anchor_index_ = index;
+    } else if (already_selected) {
+        // Defer single-selection to button up (allows multi-select D&D)
+        deferred_select_index_ = index;
+        focused_index_ = index;
     } else {
         // Single selection
         selectSingle(index);
@@ -579,6 +590,7 @@ void ThumbnailGrid::onMousemove(int x, int y, WPARAM keys) {
 
     if (abs(dx) > kDragThreshold || abs(dy) > kDragThreshold) {
         drag_pending_ = false;
+        deferred_select_index_ = SIZE_MAX;  // Cancel deferred select on drag
         beginDrag();
     }
 }

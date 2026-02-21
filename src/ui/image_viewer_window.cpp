@@ -108,6 +108,11 @@ void ImageViewerWindow::show() {
     }
 
     if (hwnd_) {
+        // Save focus only on initial show (not when switching images)
+        if (!isVisible()) {
+            previous_focus_ = GetFocus();
+        }
+
         auto& settings = App::instance().settings();
         ShowWindow(hwnd_, settings.viewer_window.maximized ? SW_SHOWMAXIMIZED : SW_SHOW);
         SetForegroundWindow(hwnd_);
@@ -490,6 +495,12 @@ void ImageViewerWindow::onDestroy() {
     // Release D2D resources
     bitmap_.Reset();
     device_resources_.discardResources();
+
+    // Restore focus to the originating view
+    if (previous_focus_ && IsWindow(previous_focus_)) {
+        SetFocus(previous_focus_);
+    }
+    previous_focus_ = nullptr;
 
     hwnd_ = nullptr;
 }

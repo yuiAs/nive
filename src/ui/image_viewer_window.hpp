@@ -119,6 +119,7 @@ private:
     HINSTANCE hinstance_ = nullptr;
     HMENU menu_ = nullptr;
     HWND status_bar_ = nullptr;
+    HWND previous_focus_ = nullptr;
 
     // D2D rendering
     d2d::DeviceResources device_resources_;

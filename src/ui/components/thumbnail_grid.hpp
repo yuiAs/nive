@@ -50,7 +50,7 @@ public:
     void setBounds(int x, int y, int width, int height);
 
     /// @brief Set items to display
-    void setItems(const std::vector<fs::FileMetadata>& items);
+    void setItems(const std::vector<fs::FileMetadata>& items, bool preserve_scroll = false);
 
     /// @brief Set thumbnail for a file
     void setThumbnail(const std::filesystem::path& path, image::DecodedImage thumbnail);

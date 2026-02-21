@@ -110,6 +110,9 @@ private:
     std::unique_ptr<ThumbnailGrid> grid_;
     std::unique_ptr<FileOperationManager> file_op_manager_;
 
+    // State change tracking
+    bool directory_changed_ = false;
+
     // Layout - vertical splitter (left-right)
     int vsplitter_pos_ = 250;
     bool dragging_vsplitter_ = false;

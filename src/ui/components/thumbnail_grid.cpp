@@ -79,15 +79,19 @@ void ThumbnailGrid::setBounds(int x, int y, int width, int height) {
     }
 }
 
-void ThumbnailGrid::setItems(const std::vector<fs::FileMetadata>& items) {
+void ThumbnailGrid::setItems(const std::vector<fs::FileMetadata>& items, bool preserve_scroll) {
     items_ = items;
     thumbnails_.clear();
     selected_.assign(items.size(), false);
     focused_index_ = SIZE_MAX;
     anchor_index_ = SIZE_MAX;
-    scroll_pos_ = 0;
+    if (!preserve_scroll) {
+        scroll_pos_ = 0;
+    }
 
     updateLayout();
+    // Clamp scroll position to valid range after layout recalculation
+    scroll_pos_ = std::clamp(scroll_pos_, 0, max_scroll_);
     updateScrollbar();
     requestVisibleThumbnails();
     InvalidateRect(hwnd_, nullptr, FALSE);

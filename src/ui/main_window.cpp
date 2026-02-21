@@ -705,6 +705,7 @@ void MainWindow::createChildControls() {
     App::instance().state().onChange([this](AppState::ChangeType type) {
         switch (type) {
         case AppState::ChangeType::CurrentPath:
+            directory_changed_ = true;
             if (tree_) {
                 // Only call selectPath() when navigation originated from outside
                 // the tree (e.g. file list, address bar). When the user clicks a
@@ -718,15 +719,18 @@ void MainWindow::createChildControls() {
             updateStatusBar();
             break;
 
-        case AppState::ChangeType::DirectoryContents:
+        case AppState::ChangeType::DirectoryContents: {
+            bool preserve_scroll = !directory_changed_;
+            directory_changed_ = false;
             if (file_list_) {
                 file_list_->setItems(App::instance().state().files());
             }
             if (grid_) {
-                grid_->setItems(App::instance().state().files());
+                grid_->setItems(App::instance().state().files(), preserve_scroll);
             }
             updateStatusBar();
             break;
+        }
 
         case AppState::ChangeType::Selection:
             updateStatusBar();

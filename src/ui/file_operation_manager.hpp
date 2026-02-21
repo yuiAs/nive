@@ -14,6 +14,7 @@
 
 #include "core/fs/file_conflict.hpp"
 #include "core/fs/file_operations.hpp"
+#include "core/fs/shell_file_operation.hpp"
 
 namespace nive::ui {
 
@@ -34,7 +35,8 @@ struct FileOperationOptions {
 /// @brief Manages file operations with UI feedback
 ///
 /// Coordinates between file system operations, conflict detection,
-/// and UI dialogs for user interaction.
+/// and UI dialogs for user interaction. Uses IFileOperation COM API
+/// for OS-native progress dialog, undo support, and Shell integration.
 class FileOperationManager {
 public:
     explicit FileOperationManager(HWND parent_window);
@@ -84,6 +86,24 @@ public:
     }
 
 private:
+    /// @brief Resolve conflicts and build items list for copy/move operations
+    /// @param files Source files
+    /// @param dest_dir Destination directory
+    /// @param show_dialog Whether to show conflict dialog
+    /// @return Resolved items list, or nullopt if operation was cancelled
+    std::optional<std::vector<fs::ResolvedFileItem>>
+    resolveAllConflicts(const std::vector<std::filesystem::path>& files,
+                        const std::filesystem::path& dest_dir, bool show_dialog);
+
+    /// @brief Resolve a single conflict according to resolution
+    /// @param conflict Conflict info
+    /// @param resolution User's resolution choice
+    /// @param move_to_trash Whether to move replaced file to trash
+    /// @return Resolved item, or nullopt to skip this file
+    std::optional<fs::ResolvedFileItem> resolveConflict(const fs::FileConflictInfo& conflict,
+                                                        const fs::ConflictResolution& resolution,
+                                                        bool move_to_trash);
+
     /// @brief Show conflict dialog and get resolution
     std::optional<fs::ConflictResolution> showConflictDialog(const fs::FileConflictInfo& conflict);
 

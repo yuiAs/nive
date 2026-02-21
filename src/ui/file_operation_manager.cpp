@@ -1,5 +1,5 @@
 /// @file file_operation_manager.cpp
-/// @brief File operation manager implementation
+/// @brief File operation manager implementation using IFileOperation COM API
 
 #include "file_operation_manager.hpp"
 
@@ -15,32 +15,29 @@ namespace nive::ui {
 FileOperationManager::FileOperationManager(HWND parent_window) : parent_window_(parent_window) {
 }
 
+// ============================================================================
+// Public API
+// ============================================================================
+
 fs::FileOperationResult
 FileOperationManager::copyFiles(const std::vector<std::filesystem::path>& files,
                                 const std::filesystem::path& dest_dir,
                                 const FileOperationOptions& options) {
     apply_to_all_resolution_.reset();
 
-    fs::ExtendedCopyOptions copy_options;
-    copy_options.preserve_timestamps = true;
-
-    if (options.show_conflict_dialog) {
-        copy_options.on_conflict =
-            [this](const fs::FileConflictInfo& conflict) -> std::optional<fs::ConflictResolution> {
-            // Use "apply to all" if set
-            if (apply_to_all_resolution_) {
-                return apply_to_all_resolution_;
-            }
-
-            auto resolution = showConflictDialog(conflict);
-            if (resolution && resolution->apply_to_all) {
-                apply_to_all_resolution_ = resolution;
-            }
-            return resolution;
-        };
+    auto resolved = resolveAllConflicts(files, dest_dir, options.show_conflict_dialog);
+    if (!resolved) {
+        // User cancelled via conflict dialog
+        fs::FileOperationResult result;
+        result.error = fs::FileOperationError::Cancelled;
+        if (complete_callback_) {
+            complete_callback_(false, result);
+        }
+        return result;
     }
 
-    auto result = fs::copyFilesWithConflictHandling(files, dest_dir, copy_options);
+    auto result = fs::ShellFileOperation::copyItems(
+        *resolved, {.owner_window = parent_window_, .allow_undo = true});
 
     if (!result.failed_files.empty() && result.error != fs::FileOperationError::Cancelled) {
         showErrorDialog(result, std::wstring(i18n::tr("file_operation.copy")));
@@ -59,25 +56,18 @@ FileOperationManager::moveFiles(const std::vector<std::filesystem::path>& files,
                                 const FileOperationOptions& options) {
     apply_to_all_resolution_.reset();
 
-    fs::ExtendedCopyOptions move_options;
-    move_options.preserve_timestamps = true;
-
-    if (options.show_conflict_dialog) {
-        move_options.on_conflict =
-            [this](const fs::FileConflictInfo& conflict) -> std::optional<fs::ConflictResolution> {
-            if (apply_to_all_resolution_) {
-                return apply_to_all_resolution_;
-            }
-
-            auto resolution = showConflictDialog(conflict);
-            if (resolution && resolution->apply_to_all) {
-                apply_to_all_resolution_ = resolution;
-            }
-            return resolution;
-        };
+    auto resolved = resolveAllConflicts(files, dest_dir, options.show_conflict_dialog);
+    if (!resolved) {
+        fs::FileOperationResult result;
+        result.error = fs::FileOperationError::Cancelled;
+        if (complete_callback_) {
+            complete_callback_(false, result);
+        }
+        return result;
     }
 
-    auto result = fs::moveFilesWithConflictHandling(files, dest_dir, move_options);
+    auto result = fs::ShellFileOperation::moveItems(
+        *resolved, {.owner_window = parent_window_, .allow_undo = true});
 
     if (!result.failed_files.empty() && result.error != fs::FileOperationError::Cancelled) {
         showErrorDialog(result, std::wstring(i18n::tr("file_operation.move")));
@@ -99,6 +89,8 @@ FileOperationManager::deleteFiles(const std::vector<std::filesystem::path>& file
         return result;
     }
 
+    bool use_trash = options.default_to_trash;
+
     // Show confirmation dialog
     if (options.show_delete_confirm) {
         DeleteConfirmOptions dialog_options;
@@ -113,54 +105,16 @@ FileOperationManager::deleteFiles(const std::vector<std::filesystem::path>& file
             return result;
         }
 
-        if (confirm_result == DeleteConfirmResult::Trash) {
-            // Move to trash
-            fs::TrashOptions trash_options;
-            trash_options.silent = true;
+        use_trash = (confirm_result == DeleteConfirmResult::Trash);
+    }
 
-            auto trash_result = fs::trashFiles(files, trash_options);
+    fs::ShellOperationOptions shell_options{.owner_window = parent_window_};
 
-            result.files_processed = trash_result.files_trashed;
-            result.failed_files.reserve(trash_result.failed_files.size());
-            for (const auto& f : trash_result.failed_files) {
-                result.failed_files.push_back(f);
-            }
-
-            if (trash_result.error != fs::TrashError::Success) {
-                if (result.files_processed > 0) {
-                    result.error = fs::FileOperationError::PartialSuccess;
-                } else {
-                    result.error = fs::FileOperationError::IoError;
-                }
-            }
-        } else {
-            // Permanent delete
-            result = fs::deleteFiles(files);
-        }
+    if (use_trash) {
+        shell_options.allow_undo = true;
+        result = fs::ShellFileOperation::recycleItems(files, shell_options);
     } else {
-        // Delete without confirmation (use trash by default)
-        if (options.default_to_trash) {
-            fs::TrashOptions trash_options;
-            trash_options.silent = true;
-
-            auto trash_result = fs::trashFiles(files, trash_options);
-
-            result.files_processed = trash_result.files_trashed;
-            result.failed_files.reserve(trash_result.failed_files.size());
-            for (const auto& f : trash_result.failed_files) {
-                result.failed_files.push_back(f);
-            }
-
-            if (trash_result.error != fs::TrashError::Success) {
-                if (result.files_processed > 0) {
-                    result.error = fs::FileOperationError::PartialSuccess;
-                } else {
-                    result.error = fs::FileOperationError::IoError;
-                }
-            }
-        } else {
-            result = fs::deleteFiles(files);
-        }
+        result = fs::ShellFileOperation::deleteItems(files, shell_options);
     }
 
     if (!result.failed_files.empty() && result.error != fs::FileOperationError::Cancelled) {
@@ -184,6 +138,141 @@ FileOperationManager::handleDrop(const std::vector<std::filesystem::path>& files
         return copyFiles(files, dest_dir, options);
     }
 }
+
+// ============================================================================
+// Conflict resolution
+// ============================================================================
+
+std::optional<std::vector<fs::ResolvedFileItem>>
+FileOperationManager::resolveAllConflicts(const std::vector<std::filesystem::path>& files,
+                                          const std::filesystem::path& dest_dir,
+                                          bool show_dialog) {
+    auto conflicts = fs::detectConflicts(files, dest_dir);
+
+    // Build a map of source path -> conflict info for quick lookup
+    std::unordered_map<std::wstring, const fs::FileConflictInfo*> conflict_map;
+    for (const auto& conflict : conflicts) {
+        conflict_map[conflict.source_path.wstring()] = &conflict;
+    }
+
+    std::vector<fs::ResolvedFileItem> resolved_items;
+    resolved_items.reserve(files.size());
+
+    for (const auto& file : files) {
+        auto it = conflict_map.find(file.wstring());
+        if (it == conflict_map.end()) {
+            // No conflict — add directly
+            resolved_items.push_back({.source_path = file, .dest_dir = dest_dir});
+            continue;
+        }
+
+        const auto& conflict = *it->second;
+
+        // Handle skip_identical from apply-to-all
+        if (apply_to_all_resolution_ && apply_to_all_resolution_->skip_identical &&
+            conflict.files_identical) {
+            continue;  // Skip identical file
+        }
+
+        // Determine resolution
+        fs::ConflictResolution resolution;
+        if (apply_to_all_resolution_) {
+            resolution = *apply_to_all_resolution_;
+        } else if (show_dialog) {
+            auto maybe_resolution = showConflictDialog(conflict);
+            if (!maybe_resolution) {
+                return std::nullopt;  // User cancelled
+            }
+            resolution = *maybe_resolution;
+
+            if (resolution.apply_to_all) {
+                apply_to_all_resolution_ = resolution;
+            }
+        } else {
+            // No dialog, skip conflicts
+            continue;
+        }
+
+        // Check skip_identical with current resolution
+        if (resolution.skip_identical && conflict.files_identical) {
+            continue;
+        }
+
+        auto resolved = resolveConflict(conflict, resolution, resolution.move_replaced_to_trash);
+        if (resolved) {
+            resolved_items.push_back(std::move(*resolved));
+        }
+        // else: skip this file
+    }
+
+    return resolved_items;
+}
+
+std::optional<fs::ResolvedFileItem>
+FileOperationManager::resolveConflict(const fs::FileConflictInfo& conflict,
+                                      const fs::ConflictResolution& resolution,
+                                      bool move_to_trash) {
+    switch (resolution.action) {
+    case fs::ConflictAction::Skip:
+        return std::nullopt;
+
+    case fs::ConflictAction::Overwrite:
+        if (move_to_trash) {
+            (void)fs::trashFile(conflict.dest_path, fs::TrashOptions{.silent = true});
+        }
+        return fs::ResolvedFileItem{
+            .source_path = conflict.source_path,
+            .dest_dir = conflict.dest_path.parent_path(),
+        };
+
+    case fs::ConflictAction::Rename:
+        return fs::ResolvedFileItem{
+            .source_path = conflict.source_path,
+            .dest_dir = conflict.dest_path.parent_path(),
+            .dest_name = resolution.custom_name,
+        };
+
+    case fs::ConflictAction::AutoNumber: {
+        auto unique_path = fs::generateUniquePath(conflict.dest_path);
+        return fs::ResolvedFileItem{
+            .source_path = conflict.source_path,
+            .dest_dir = unique_path.parent_path(),
+            .dest_name = unique_path.filename().wstring(),
+        };
+    }
+
+    case fs::ConflictAction::KeepNewer:
+        if (conflict.source_time > conflict.dest_time) {
+            if (move_to_trash) {
+                (void)fs::trashFile(conflict.dest_path, fs::TrashOptions{.silent = true});
+            }
+            return fs::ResolvedFileItem{
+                .source_path = conflict.source_path,
+                .dest_dir = conflict.dest_path.parent_path(),
+            };
+        }
+        return std::nullopt;  // Destination is newer, skip
+
+    case fs::ConflictAction::KeepLarger:
+        if (conflict.source_size > conflict.dest_size) {
+            if (move_to_trash) {
+                (void)fs::trashFile(conflict.dest_path, fs::TrashOptions{.silent = true});
+            }
+            return fs::ResolvedFileItem{
+                .source_path = conflict.source_path,
+                .dest_dir = conflict.dest_path.parent_path(),
+            };
+        }
+        return std::nullopt;  // Destination is larger, skip
+
+    default:
+        return std::nullopt;
+    }
+}
+
+// ============================================================================
+// UI dialogs
+// ============================================================================
 
 std::optional<fs::ConflictResolution>
 FileOperationManager::showConflictDialog(const fs::FileConflictInfo& conflict) {

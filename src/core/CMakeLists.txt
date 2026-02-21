@@ -33,6 +33,7 @@ target_sources(nive_core
         fs/directory.cpp
         fs/file_conflict.cpp
         fs/file_operations.cpp
+        fs/shell_file_operation.cpp
         fs/trash.cpp
 
         # Archive module

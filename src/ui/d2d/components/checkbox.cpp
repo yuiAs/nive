@@ -70,7 +70,9 @@ void D2DCheckBox::createResources(DeviceResources& resources) {
         text_color = Style::textColor();
     } else {
         box_bg = Style::boxBackground();
-        box_border = hovered_ ? Style::boxHoverBorder() : Style::boxBorder();
+        box_border = focused_ ? CommonStyle::borderFocused()
+                     : hovered_ ? Style::boxHoverBorder()
+                                : Style::boxBorder();
         text_color = Style::textColor();
     }
 
@@ -158,6 +160,9 @@ void D2DCheckBox::render(ID2D1RenderTarget* rt) {
 bool D2DCheckBox::onMouseDown(const MouseEvent& event) {
     if (!enabled_ || event.button != MouseButton::Left) {
         return false;
+    }
+    if (parent_) {
+        parent_->requestFocus(this);
     }
     pressed_ = true;
     return true;

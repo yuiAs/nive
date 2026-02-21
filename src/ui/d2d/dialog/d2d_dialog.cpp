@@ -5,7 +5,12 @@
 
 #include <windowsx.h>
 
+#include <algorithm>
+
 #include "core/util/logger.hpp"
+#include "ui/d2d/components/button.hpp"
+#include "ui/d2d/components/radiobutton.hpp"
+#include "ui/d2d/components/tabcontrol.hpp"
 
 namespace nive::ui::d2d {
 
@@ -137,6 +142,9 @@ bool D2DDialog::createWindow(HWND parent) {
 
     ShowWindow(hwnd_, SW_SHOW);
     UpdateWindow(hwnd_);
+
+    // Set initial focus to the first focusable component
+    advanceFocus(true);
 
     return true;
 }
@@ -280,8 +288,25 @@ LRESULT D2DDialog::handleMessage(UINT msg, WPARAM wParam, LPARAM lParam) {
 
     case WM_KEYDOWN: {
         auto event = createKeyEvent(wParam, lParam);
-        // Forward through the component hierarchy
-        onKeyDown(event);
+
+        // Tab is intercepted at dialog level before child dispatch
+        if (event.keyCode == VK_TAB) {
+            bool shift = (event.modifiers & Modifiers::Shift) != Modifiers::None;
+            advanceFocus(!shift);
+            return 0;
+        }
+
+        // Dispatch to focused child first
+        bool handled = onKeyDown(event);
+
+        // Dialog-level shortcuts for unhandled keys
+        if (!handled) {
+            if (event.keyCode == VK_ESCAPE) {
+                endDialog(IDCANCEL);
+            } else if (event.keyCode == VK_RETURN && default_button_) {
+                default_button_->onKeyDown(event);
+            }
+        }
         return 0;
     }
 
@@ -328,6 +353,140 @@ void D2DDialog::updateLayout() {
         child->measure(bounds_.size());
         child->arrange(bounds_);
     }
+}
+
+void D2DDialog::collectFocusableComponents(D2DContainerComponent* container,
+                                            std::vector<D2DUIComponent*>& out) const {
+    if (!container) {
+        return;
+    }
+
+    for (size_t i = 0; i < container->childCount(); ++i) {
+        auto* child = container->childAt(i);
+        if (!child || !child->isVisible() || !child->isEnabled()) {
+            continue;
+        }
+
+        // Special handling for TabControl: only recurse into selected tab content
+        if (auto* tab_ctrl = dynamic_cast<D2DTabControl*>(child)) {
+            if (auto* content = tab_ctrl->selectedContent()) {
+                collectFocusableComponents(content, out);
+            }
+            continue;
+        }
+
+        // Special handling for RadioButton groups: only add the tabbable button
+        if (auto* radio = dynamic_cast<D2DRadioButton*>(child)) {
+            if (auto* group = radio->group()) {
+                // Check if this group's tabbable button has already been added
+                auto* tabbable = group->tabbableButton();
+                if (tabbable && tabbable == radio) {
+                    out.push_back(tabbable);
+                }
+                // Skip non-tabbable radio buttons in a group
+                continue;
+            }
+            // Ungrouped radio button: fall through to normal handling
+        }
+
+        // If this is a container, recurse into it
+        if (auto* sub_container = dynamic_cast<D2DContainerComponent*>(child)) {
+            collectFocusableComponents(sub_container, out);
+        } else if (child->canReceiveFocus()) {
+            out.push_back(child);
+        }
+    }
+}
+
+D2DUIComponent* D2DDialog::findFocusedLeaf() const {
+    const D2DContainerComponent* current = this;
+    while (current) {
+        auto* focused = current->focusedChild();
+        if (!focused) {
+            return nullptr;
+        }
+        if (auto* container = dynamic_cast<D2DContainerComponent*>(focused)) {
+            // Special handling for TabControl: follow into selected content
+            if (auto* tab_ctrl = dynamic_cast<D2DTabControl*>(focused)) {
+                auto* content = tab_ctrl->selectedContent();
+                if (content && content->focusedChild()) {
+                    current = content;
+                    continue;
+                }
+                return nullptr;
+            }
+            current = container;
+        } else {
+            return focused;
+        }
+    }
+    return nullptr;
+}
+
+bool D2DDialog::advanceFocus(bool forward) {
+    std::vector<D2DUIComponent*> focusable;
+    for (size_t i = 0; i < childCount(); ++i) {
+        auto* child = childAt(i);
+        if (auto* container = dynamic_cast<D2DContainerComponent*>(child)) {
+            // For TabControl, only collect from selected tab
+            if (auto* tab_ctrl = dynamic_cast<D2DTabControl*>(child)) {
+                if (auto* content = tab_ctrl->selectedContent()) {
+                    collectFocusableComponents(content, focusable);
+                }
+            } else {
+                collectFocusableComponents(container, focusable);
+            }
+        } else if (child && child->canReceiveFocus()) {
+            focusable.push_back(child);
+        }
+    }
+
+    if (focusable.empty()) {
+        return false;
+    }
+
+    auto* current = findFocusedLeaf();
+    if (!current) {
+        // No focus yet: focus the first (or last) component
+        auto* target = forward ? focusable.front() : focusable.back();
+        if (target->parent()) {
+            target->parent()->requestFocus(target);
+        }
+        invalidate();
+        return true;
+    }
+
+    // Find current in the list
+    auto it = std::find(focusable.begin(), focusable.end(), current);
+    if (it == focusable.end()) {
+        // Current focused component not in list (might be hidden/disabled)
+        auto* target = forward ? focusable.front() : focusable.back();
+        if (target->parent()) {
+            target->parent()->requestFocus(target);
+        }
+        invalidate();
+        return true;
+    }
+
+    // Advance with wrapping
+    if (forward) {
+        ++it;
+        if (it == focusable.end()) {
+            it = focusable.begin();
+        }
+    } else {
+        if (it == focusable.begin()) {
+            it = focusable.end();
+        }
+        --it;
+    }
+
+    auto* target = *it;
+    if (target->parent()) {
+        target->parent()->requestFocus(target);
+    }
+    invalidate();
+    return true;
 }
 
 Size D2DDialog::measure(const Size& available_size) {

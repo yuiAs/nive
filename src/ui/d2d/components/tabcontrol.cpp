@@ -88,6 +88,13 @@ void D2DTabControl::setSelectedIndex(int index) {
     }
 }
 
+D2DContainerComponent* D2DTabControl::selectedContent() const noexcept {
+    if (selected_index_ >= 0 && selected_index_ < static_cast<int>(tabs_.size())) {
+        return tabs_[selected_index_].content.get();
+    }
+    return nullptr;
+}
+
 void D2DTabControl::createResources(DeviceResources& resources) {
     auto& factory = D2DFactory::instance();
     if (!factory.isValid()) {

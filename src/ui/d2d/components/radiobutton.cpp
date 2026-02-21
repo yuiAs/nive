@@ -89,7 +89,9 @@ void D2DRadioButton::createResources(DeviceResources& resources) {
         text_color = Style::disabledTextColor();
     } else {
         circle_bg = Style::circleBackground();
-        circle_border = hovered_ ? Style::circleHoverBorder() : Style::circleBorder();
+        circle_border = focused_ ? CommonStyle::borderFocused()
+                        : hovered_ ? Style::circleHoverBorder()
+                                   : Style::circleBorder();
         text_color = Style::textColor();
     }
 
@@ -173,6 +175,9 @@ bool D2DRadioButton::onMouseDown(const MouseEvent& event) {
     if (!enabled_ || event.button != MouseButton::Left) {
         return false;
     }
+    if (parent_) {
+        parent_->requestFocus(this);
+    }
     pressed_ = true;
     return true;
 }
@@ -200,6 +205,23 @@ bool D2DRadioButton::onKeyDown(const KeyEvent& event) {
     if (event.keyCode == VK_SPACE) {
         select();
         return true;
+    }
+
+    // Arrow key navigation within the group
+    if (group_) {
+        bool is_arrow = (event.keyCode == VK_UP || event.keyCode == VK_DOWN ||
+                         event.keyCode == VK_LEFT || event.keyCode == VK_RIGHT);
+        if (is_arrow) {
+            bool forward = (event.keyCode == VK_DOWN || event.keyCode == VK_RIGHT);
+            auto* next = group_->adjacentButton(this, forward);
+            if (next) {
+                next->select();
+                if (next->parent()) {
+                    next->parent()->requestFocus(next);
+                }
+            }
+            return true;
+        }
     }
 
     return false;
@@ -238,6 +260,42 @@ void D2DRadioGroup::onButtonSelected(D2DRadioButton* button) {
     if (selected_) {
         selected_->setSelected(true);
     }
+}
+
+D2DRadioButton* D2DRadioGroup::adjacentButton(D2DRadioButton* current, bool forward) const {
+    if (buttons_.empty()) {
+        return nullptr;
+    }
+
+    auto it = std::find(buttons_.begin(), buttons_.end(), current);
+    if (it == buttons_.end()) {
+        return nullptr;
+    }
+
+    // Search in the given direction, wrapping around, skipping disabled buttons
+    size_t count = buttons_.size();
+    size_t idx = static_cast<size_t>(it - buttons_.begin());
+    for (size_t i = 1; i < count; ++i) {
+        size_t next_idx = forward ? (idx + i) % count : (idx + count - i) % count;
+        if (buttons_[next_idx]->isEnabled() && buttons_[next_idx]->isVisible()) {
+            return buttons_[next_idx];
+        }
+    }
+    return nullptr;
+}
+
+D2DRadioButton* D2DRadioGroup::tabbableButton() const {
+    // Return the selected button if it's enabled and visible
+    if (selected_ && selected_->isEnabled() && selected_->isVisible()) {
+        return selected_;
+    }
+    // Otherwise return the first enabled, visible button
+    for (auto* btn : buttons_) {
+        if (btn->isEnabled() && btn->isVisible()) {
+            return btn;
+        }
+    }
+    return nullptr;
 }
 
 void D2DRadioGroup::updateSelectionTracking(D2DRadioButton* button, bool selected) {

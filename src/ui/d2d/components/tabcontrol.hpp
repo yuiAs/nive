@@ -79,6 +79,9 @@ public:
     [[nodiscard]] int selectedIndex() const noexcept { return selected_index_; }
     void setSelectedIndex(int index);
 
+    /// @brief Get the content container of the currently selected tab
+    [[nodiscard]] D2DContainerComponent* selectedContent() const noexcept;
+
     /// @brief Set selection change callback
     void onSelect(SelectCallback callback) { on_select_ = std::move(callback); }
 

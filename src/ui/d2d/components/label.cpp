@@ -7,9 +7,12 @@
 
 namespace nive::ui::d2d {
 
-D2DLabel::D2DLabel() = default;
+D2DLabel::D2DLabel() {
+    focusable_ = false;
+}
 
 D2DLabel::D2DLabel(const std::wstring& text) : text_(text) {
+    focusable_ = false;
 }
 
 void D2DLabel::setText(const std::wstring& text) {

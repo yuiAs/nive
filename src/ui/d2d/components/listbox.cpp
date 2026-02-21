@@ -320,6 +320,10 @@ bool D2DListBox::onMouseDown(const MouseEvent& event) {
         return false;
     }
 
+    if (parent_) {
+        parent_->requestFocus(this);
+    }
+
     // event.position is in local coordinates (0,0 = top-left of this component)
     // Convert to absolute coordinates for comparison with bounds-based rects
     Point abs_pos{event.position.x + bounds_.x, event.position.y + bounds_.y};

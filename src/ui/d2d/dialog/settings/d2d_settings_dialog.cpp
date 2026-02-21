@@ -115,6 +115,7 @@ void D2DSettingsDialog::createComponents() {
     });
     ok_button_ = ok.get();
     addChild(std::move(ok));
+    setDefaultButton(ok_button_);
 
     // Cancel button
     auto cancel = std::make_unique<D2DButton>(i18n::tr("dialog.settings.cancel"));

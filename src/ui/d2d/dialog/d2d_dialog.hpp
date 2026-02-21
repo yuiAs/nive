@@ -15,6 +15,8 @@
 
 namespace nive::ui::d2d {
 
+class D2DButton;
+
 /// @brief Base class for dialogs rendered with Direct2D
 ///
 /// Creates a Win32 window that uses D2D for all rendering.
@@ -36,6 +38,11 @@ public:
 
     /// @brief Get device resources
     [[nodiscard]] DeviceResources& deviceResources() noexcept { return device_resources_; }
+
+    /// @brief Advance focus to the next (or previous) focusable component
+    /// @param forward true for Tab, false for Shift+Tab
+    /// @return true if focus was moved
+    bool advanceFocus(bool forward);
 
     // D2DUIComponent overrides
     Size measure(const Size& available_size) override;
@@ -85,6 +92,9 @@ protected:
     /// @brief DPI scale an integer value
     [[nodiscard]] int scale(int value) const noexcept { return device_resources_.scale(value); }
 
+    /// @brief Set the default button (activated by Enter key)
+    void setDefaultButton(D2DButton* button) noexcept { default_button_ = button; }
+
     /// @brief Request repaint when child components call invalidate()
     void onInvalidate() override {
         if (hwnd_) {
@@ -99,6 +109,11 @@ private:
     bool createWindow(HWND parent);
     void destroyWindow();
     void updateLayout();
+
+    // Focus traversal helpers
+    void collectFocusableComponents(D2DContainerComponent* container,
+                                     std::vector<D2DUIComponent*>& out) const;
+    D2DUIComponent* findFocusedLeaf() const;
 
     // Event helpers
     [[nodiscard]] MouseEvent createMouseEvent(LPARAM lParam, WPARAM wParam,
@@ -116,6 +131,7 @@ private:
     Size min_size_{200.0f, 150.0f};
     bool resizable_ = false;
     bool running_ = false;
+    D2DButton* default_button_ = nullptr;
 
     // Window class registration
     static ATOM window_class_;

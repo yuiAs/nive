@@ -100,6 +100,15 @@ public:
     /// is called directly. Deselects previous button if needed.
     void updateSelectionTracking(D2DRadioButton* button, bool selected);
 
+    /// @brief Get the adjacent button in the group (wraps around)
+    /// @param current The current button
+    /// @param forward true for next, false for previous
+    [[nodiscard]] D2DRadioButton* adjacentButton(D2DRadioButton* current, bool forward) const;
+
+    /// @brief Get the button that should receive Tab focus
+    /// @return Selected button if valid, otherwise first enabled button
+    [[nodiscard]] D2DRadioButton* tabbableButton() const;
+
 private:
     std::vector<D2DRadioButton*> buttons_;
     D2DRadioButton* selected_ = nullptr;

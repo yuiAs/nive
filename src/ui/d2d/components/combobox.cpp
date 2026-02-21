@@ -307,6 +307,9 @@ bool D2DComboBox::onMouseDown(const MouseEvent& event) {
     }
 
     if (event.button == MouseButton::Left) {
+        if (parent_) {
+            parent_->requestFocus(this);
+        }
         toggleDropdown();
         return true;
     }

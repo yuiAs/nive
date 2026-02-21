@@ -195,6 +195,9 @@ bool D2DButton::onMouseDown(const MouseEvent& event) {
     if (!enabled_ || event.button != MouseButton::Left) {
         return false;
     }
+    if (parent_) {
+        parent_->requestFocus(this);
+    }
     pressed_ = true;
     invalidate();
     return true;

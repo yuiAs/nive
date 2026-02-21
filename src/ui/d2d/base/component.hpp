@@ -71,6 +71,12 @@ public:
     [[nodiscard]] bool isEnabled() const noexcept { return enabled_; }
     void setEnabled(bool enabled);
 
+    [[nodiscard]] bool isFocusable() const noexcept { return focusable_; }
+    void setFocusable(bool focusable) noexcept { focusable_ = focusable; }
+    [[nodiscard]] bool canReceiveFocus() const noexcept {
+        return focusable_ && visible_ && enabled_;
+    }
+
     [[nodiscard]] bool isFocused() const noexcept { return focused_; }
     void setFocused(bool focused);
 
@@ -118,6 +124,7 @@ protected:
     bool enabled_ = true;
     bool focused_ = false;
     bool hovered_ = false;
+    bool focusable_ = true;
 
     // Identity
     int id_ = 0;
@@ -175,7 +182,7 @@ public:
     [[nodiscard]] D2DUIComponent* focusedChild() const noexcept { return focused_child_; }
 
 protected:
-    D2DContainerComponent() = default;
+    D2DContainerComponent() { focusable_ = false; }
 
     /// @brief Set this container as the parent of a component
     ///

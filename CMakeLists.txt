@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.28)
 
 project(nive
-    VERSION 0.2.1
+    VERSION 0.2.2
     LANGUAGES C CXX
     DESCRIPTION "Lightweight image viewer for Windows"
 )

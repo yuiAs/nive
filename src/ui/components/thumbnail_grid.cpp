@@ -213,6 +213,7 @@ void ThumbnailGrid::ensureVisible(size_t index) {
     }
 
     updateScrollbar();
+    requestVisibleThumbnails();
     InvalidateRect(hwnd_, nullptr, FALSE);
 }
 

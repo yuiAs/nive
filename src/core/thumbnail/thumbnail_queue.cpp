@@ -6,12 +6,13 @@
 #include <algorithm>
 
 #include "../util/logger.hpp"
+#include "../util/string_utils.hpp"
 
 namespace nive::thumbnail {
 
 void ThumbnailQueue::push(ThumbnailRequest request) {
     auto id = request.id;
-    auto path = request.source.path.string();
+    auto path = pathToUtf8(request.source.path);
     {
         std::lock_guard lock(mutex_);
         if (stopped_) {

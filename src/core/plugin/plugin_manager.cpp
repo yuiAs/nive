@@ -5,6 +5,7 @@
 
 #include <algorithm>
 
+#include "../util/string_utils.hpp"
 #include "image/decoded_image.hpp"
 
 namespace nive::plugin {
@@ -180,7 +181,7 @@ std::vector<PluginInfo> PluginManager::listPlugins() const {
         if (!loaded) {
             PluginInfo info;
             info.path = path;
-            info.name = path.stem().string();
+            info.name = pathToUtf8(path.stem());
             info.loaded = false;
             result.push_back(info);
         }

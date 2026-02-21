@@ -7,6 +7,8 @@
 
 #include <algorithm>
 
+#include "../util/string_utils.hpp"
+
 namespace nive::i18n {
 
 std::string detectSystemLocale() {
@@ -64,7 +66,7 @@ std::vector<std::string> listAvailableLocales(const std::filesystem::path& local
 
     for (const auto& entry : std::filesystem::directory_iterator(locale_dir, ec)) {
         if (entry.is_regular_file() && entry.path().extension() == ".toml") {
-            locales.push_back(entry.path().stem().string());
+            locales.push_back(pathToUtf8(entry.path().stem()));
         }
     }
 

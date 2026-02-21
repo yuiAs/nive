@@ -12,6 +12,7 @@
 #include "core/fs/directory.hpp"
 #include "core/i18n/i18n.hpp"
 #include "core/util/logger.hpp"
+#include "core/util/string_utils.hpp"
 #include "image_viewer_window.hpp"
 #include "main_window.hpp"
 
@@ -314,7 +315,7 @@ void App::loadArchive(const std::filesystem::path& archive_path) {
 
     auto entries_result = archive_->getImageEntries(archive_path);
     if (!entries_result) {
-        LOG_WARN("Failed to load archive {}: {}", archive_path.string(),
+        LOG_WARN("Failed to load archive {}: {}", pathToUtf8(archive_path),
                  to_string(entries_result.error()));
         state_->setFiles({});
         return;
@@ -338,7 +339,7 @@ void App::loadArchive(const std::filesystem::path& archive_path) {
         files.push_back(std::move(meta));
     }
 
-    LOG_INFO("Loaded {} images from archive {}", files.size(), archive_path.string());
+    LOG_INFO("Loaded {} images from archive {}", files.size(), pathToUtf8(archive_path));
     state_->setFiles(std::move(files));
 }
 
@@ -386,7 +387,7 @@ void App::requestThumbnail(const archive::VirtualPath& vpath, thumbnail::Priorit
         auto data = archive_->extractToMemory(vpath);
         if (!data) {
             std::filesystem::path vpath_as_path(vpath.to_string());
-            LOG_WARN("Failed to extract {} from archive: {}", vpath_as_path.string(),
+            LOG_WARN("Failed to extract {} from archive: {}", pathToUtf8(vpath_as_path),
                      to_string(data.error()));
             return;
         }
@@ -442,7 +443,7 @@ void App::processThumbnailResults() {
                 list->setResolution(result.path, result.original_width, result.original_height);
             }
         } else if (result.error) {
-            LOG_WARN("Thumbnail generation failed for {}: {}", result.path.string(), *result.error);
+            LOG_WARN("Thumbnail generation failed for {}: {}", pathToUtf8(result.path), *result.error);
         }
     }
 

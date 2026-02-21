@@ -7,6 +7,8 @@
 #include <ShlObj.h>
 
 #include <fstream>
+
+#include "../util/string_utils.hpp"
 #include <sstream>
 
 #ifdef NIVE_HAS_TOMLPLUSPLUS
@@ -356,7 +358,7 @@ std::expected<Settings, ConfigError> SettingsManager::loadFrom(const std::filesy
 
 #ifdef NIVE_HAS_TOMLPLUSPLUS
     try {
-        auto tbl = toml::parse_file(path.string());
+        auto tbl = toml::parse_file(pathToUtf8(path));
         return parse_settings(tbl);
     } catch (const toml::parse_error&) {
         return std::unexpected(ConfigError::ParseError);

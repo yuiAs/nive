@@ -10,6 +10,7 @@
 #include <sqlite3.h>
 
 #include "../util/logger.hpp"
+#include "../util/string_utils.hpp"
 
 #ifdef NIVE_HAS_ZSTD
     #include <zstd.h>
@@ -198,7 +199,7 @@ public:
         }
 
         // Open database
-        int rc = sqlite3_open(db_path_.string().c_str(), &db_);
+        int rc = sqlite3_open(pathToUtf8(db_path_).c_str(), &db_);
         if (rc != SQLITE_OK) {
             LOG_ERROR("Failed to open cache database: {}", sqlite3_errmsg(db_));
             return false;
@@ -220,7 +221,7 @@ public:
             return false;
         }
 
-        LOG_INFO("Cache database opened: {}", db_path_.string());
+        LOG_INFO("Cache database opened: {}", pathToUtf8(db_path_));
         return true;
     }
 
@@ -376,7 +377,7 @@ public:
         // INSERT OR REPLACE INTO thumbnails (cache_key, source_path, file_hash, width, height,
         //                                    original_width, original_height, source_mtime,
         //                                    cached_at, data_size, pixel_data)
-        std::string source_path_str = entry.metadata.source_path.string();
+        std::string source_path_str = pathToUtf8(entry.metadata.source_path);
 
         sqlite3_bind_text(stmt_put_, 1, entry.metadata.file_hash.c_str(), -1, SQLITE_TRANSIENT);
         sqlite3_bind_text(stmt_put_, 2, source_path_str.c_str(), -1, SQLITE_TRANSIENT);

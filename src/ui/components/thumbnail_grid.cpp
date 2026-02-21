@@ -9,6 +9,7 @@
 #include <algorithm>
 
 #include "core/util/logger.hpp"
+#include "core/util/string_utils.hpp"
 #include "dnd/drop_source.hpp"
 #include "dnd/file_data_object.hpp"
 #include "ui/app.hpp"
@@ -99,7 +100,7 @@ void ThumbnailGrid::setItems(const std::vector<fs::FileMetadata>& items, bool pr
 
 void ThumbnailGrid::setThumbnail(const std::filesystem::path& path, image::DecodedImage thumbnail) {
     auto key = path.wstring();
-    LOG_DEBUG("setThumbnail called: path={}, valid={}, map_size={}", path.string(),
+    LOG_DEBUG("setThumbnail called: path={}, valid={}, map_size={}", pathToUtf8(path),
               thumbnail.valid(), thumbnails_.size());
 
     ThumbnailEntry entry;

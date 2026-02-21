@@ -14,6 +14,7 @@
 #include "../image/wic_decoder.hpp"
 #include "../plugin/plugin_manager.hpp"
 #include "../util/logger.hpp"
+#include "../util/string_utils.hpp"
 
 namespace nive::thumbnail {
 
@@ -175,7 +176,7 @@ void ThumbnailGenerator::workerThread(std::stop_token stop_token) {
 
             auto& request = *request_opt;
             LOG_DEBUG("workerThread[{}]: got request id={}, path={}", thread_id, request.id,
-                      request.source.path.string());
+                      pathToUtf8(request.source.path));
 
             // Check if cancelled while waiting
             if (queue_.isCancelled(request.id)) {
@@ -252,7 +253,7 @@ void ThumbnailGenerator::processRequest(ThumbnailRequest& request, image::WicDec
         std::unexpected(image::DecodeError::UnsupportedFormat);
 
     if (plugins_) {
-        std::string ext = request.source.path.extension().string();
+        std::string ext = pathToUtf8(request.source.path.extension());
         std::transform(ext.begin(), ext.end(), ext.begin(), [](char c) {
             return static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
         });
@@ -309,7 +310,7 @@ void ThumbnailGenerator::processRequest(ThumbnailRequest& request, image::WicDec
                                                          original_width, original_height);
                 // Cache failures are not critical, just log them
                 if (!cache_result) {
-                    LOG_DEBUG("Failed to cache thumbnail for {}", request.source.path.string());
+                    LOG_DEBUG("Failed to cache thumbnail for {}", pathToUtf8(request.source.path));
                 }
             }
 

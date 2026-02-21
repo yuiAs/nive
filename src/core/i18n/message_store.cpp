@@ -5,6 +5,8 @@
 
 #include <Windows.h>
 
+#include "../util/string_utils.hpp"
+
 #ifdef NIVE_HAS_TOMLPLUSPLUS
     #include <toml++/toml.hpp>
 #endif
@@ -60,7 +62,7 @@ std::expected<MessageStore, MessageStoreError> MessageStore::load(
 
 #ifdef NIVE_HAS_TOMLPLUSPLUS
     try {
-        auto table = toml::parse_file(path.string());
+        auto table = toml::parse_file(pathToUtf8(path));
 
         MessageStore store;
         flattenTable(table, "", store.translations_, store.patterns_);

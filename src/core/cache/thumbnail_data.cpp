@@ -16,7 +16,7 @@ std::string generateCacheKey(const std::filesystem::path& path,
     auto mtime_epoch =
         std::chrono::duration_cast<std::chrono::milliseconds>(mtime.time_since_epoch()).count();
 
-    std::string key_source = std::format("{}|{}", path.string(), mtime_epoch);
+    std::string key_source = std::format("{}|{}", pathToUtf8(path), mtime_epoch);
 
     auto hash_result = sha256Hex(key_source);
 
@@ -25,7 +25,7 @@ std::string generateCacheKey(const std::filesystem::path& path,
     }
 
     // Fallback: use path hash only
-    return sha256Hex(path.string()).value_or("");
+    return sha256Hex(pathToUtf8(path)).value_or("");
 }
 
 std::string generateCacheKey(const std::filesystem::path& path) {
@@ -34,7 +34,7 @@ std::string generateCacheKey(const std::filesystem::path& path) {
 
     if (ec) {
         // If we can't get mtime, just use path
-        return sha256Hex(path.string()).value_or("");
+        return sha256Hex(pathToUtf8(path)).value_or("");
     }
 
     // Convert file_time to system_clock

@@ -9,6 +9,7 @@
 
 #include "../fs/natural_sort.hpp"
 #include "../util/logger.hpp"
+#include "../util/string_utils.hpp"
 
 namespace nive::archive {
 
@@ -58,7 +59,7 @@ std::expected<ArchiveInfo, ArchiveError> ArchiveManager::open(const std::filesys
 
     auto reader_result = getReader(path);
     if (!reader_result) {
-        LOG_ERROR("Failed to open archive: {} ({})", path.string(),
+        LOG_ERROR("Failed to open archive: {} ({})", pathToUtf8(path),
                   to_string(reader_result.error()));
         return std::unexpected(reader_result.error());
     }
@@ -243,7 +244,7 @@ ArchiveManager::getReader(const std::filesystem::path& archive_path) {
                                            return a.last_access < b.last_access;
                                        });
         if (oldest != cache_.end()) {
-            LOG_DEBUG("Evicting cached archive reader: {}", oldest->path.string());
+            LOG_DEBUG("Evicting cached archive reader: {}", pathToUtf8(oldest->path));
             cache_.erase(oldest);
         }
     }

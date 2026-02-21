@@ -14,6 +14,8 @@
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <spdlog/spdlog.h>
 
+#include "string_utils.hpp"
+
 namespace nive {
 
 /// @brief Initialize the logging system
@@ -26,7 +28,7 @@ inline bool init_logging(const std::filesystem::path& log_file, bool console_out
 
         // File sink
         auto file_sink =
-            std::make_shared<spdlog::sinks::basic_file_sink_mt>(log_file.string(), true);
+            std::make_shared<spdlog::sinks::basic_file_sink_mt>(pathToUtf8(log_file), true);
         file_sink->set_level(spdlog::level::trace);
         sinks.push_back(file_sink);
 

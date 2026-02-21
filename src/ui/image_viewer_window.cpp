@@ -13,6 +13,7 @@
 #include "app.hpp"
 #include "core/i18n/i18n.hpp"
 #include "core/image/wic_decoder.hpp"
+#include "core/util/string_utils.hpp"
 #include "d2d/core/bitmap_utils.hpp"
 #include "file_operation_manager.hpp"
 
@@ -164,7 +165,7 @@ void ImageViewerWindow::setImage(const archive::VirtualPath& path) {
 
         // Try plugin decode first
         if (plugin_mgr) {
-            std::string ext = std::filesystem::path(path.filename()).extension().string();
+            std::string ext = pathToUtf8(std::filesystem::path(path.filename()).extension());
             std::transform(ext.begin(), ext.end(), ext.begin(), [](char c) {
                 return static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
             });
@@ -184,7 +185,7 @@ void ImageViewerWindow::setImage(const archive::VirtualPath& path) {
             }
         }
     } else {
-        std::string ext = path.archive_path().extension().string();
+        std::string ext = pathToUtf8(path.archive_path().extension());
         std::transform(ext.begin(), ext.end(), ext.begin(), [](char c) {
             return static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
         });

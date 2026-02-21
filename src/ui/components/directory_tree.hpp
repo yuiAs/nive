@@ -91,8 +91,8 @@ public:
     void enableDropTarget(bool enable);
 
     /// @brief Handle notification messages
-    /// @return true if handled
-    bool handleNotify(NMHDR* nmhdr);
+    /// @return LRESULT to propagate (e.g. NM_CUSTOMDRAW return values)
+    LRESULT handleNotify(NMHDR* nmhdr);
 
 private:
     HTREEITEM addItem(HTREEITEM parent, const std::wstring& text, const std::filesystem::path& path,
@@ -107,8 +107,15 @@ private:
     std::filesystem::path getPathAtPoint(POINT screen_pt);
     void setupDropTarget();
 
+    // Hover highlight support
+    static LRESULT CALLBACK subclassProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam,
+                                         UINT_PTR subclass_id, DWORD_PTR ref_data);
+    void updateHotItem(HTREEITEM new_item);
+
     HWND hwnd_ = nullptr;
     HIMAGELIST image_list_ = nullptr;
+    HTREEITEM hot_item_ = nullptr;
+    HBRUSH hover_brush_ = nullptr;
 
     std::unordered_map<HTREEITEM, std::filesystem::path> item_paths_;
     std::unordered_set<HTREEITEM> archive_items_;

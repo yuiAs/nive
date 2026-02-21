@@ -259,7 +259,7 @@ LRESULT MainWindow::handleMessage(UINT msg, WPARAM wParam, LPARAM lParam) {
     case WM_NOTIFY: {
         auto* nmhdr = reinterpret_cast<NMHDR*>(lParam);
         if (tree_ && nmhdr->hwndFrom == tree_->hwnd()) {
-            tree_->handleNotify(nmhdr);
+            return tree_->handleNotify(nmhdr);
         } else if (file_list_ && nmhdr->hwndFrom == file_list_->hwnd()) {
             file_list_->handleNotify(nmhdr);
         }

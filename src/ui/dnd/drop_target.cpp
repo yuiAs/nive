@@ -109,6 +109,9 @@ STDMETHODIMP DropTarget::DragLeave() {
     has_valid_data_ = false;
     current_dest_path_.clear();
     first_source_path_.clear();
+    if (on_drag_end_) {
+        on_drag_end_();
+    }
     return S_OK;
 }
 
@@ -152,6 +155,9 @@ STDMETHODIMP DropTarget::Drop(IDataObject* pDataObj, DWORD grfKeyState, POINTL p
     has_valid_data_ = false;
     current_dest_path_.clear();
     first_source_path_.clear();
+    if (on_drag_end_) {
+        on_drag_end_();
+    }
 
     return S_OK;
 }

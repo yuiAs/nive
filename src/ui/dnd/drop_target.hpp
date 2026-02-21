@@ -50,6 +50,9 @@ public:
     STDMETHOD(DragLeave)() override;
     STDMETHOD(Drop)(IDataObject* pDataObj, DWORD grfKeyState, POINTL pt, DWORD* pdwEffect) override;
 
+    /// @brief Set callback invoked when drag operation ends (DragLeave or Drop)
+    void onDragEnd(std::function<void()> callback) { on_drag_end_ = std::move(callback); }
+
     /// @brief Register this drop target with the window
     bool registerTarget();
 
@@ -77,6 +80,7 @@ private:
     HWND hwnd_;
     FileDropCallback on_drop_;
     GetDropPathCallback get_drop_path_;
+    std::function<void()> on_drag_end_;
 
     // State during drag
     bool has_valid_data_ = false;

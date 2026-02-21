@@ -4,6 +4,9 @@
 #include "directory_tree.hpp"
 
 #include <shellapi.h>
+#include <windowsx.h>
+
+#include <CommCtrl.h>
 
 #include "core/archive/archive_manager.hpp"
 #include "core/fs/directory.hpp"
@@ -15,6 +18,12 @@ namespace nive::ui {
 DirectoryTree::DirectoryTree() = default;
 
 DirectoryTree::~DirectoryTree() {
+    if (hwnd_) {
+        RemoveWindowSubclass(hwnd_, subclassProc, 0);
+    }
+    if (hover_brush_) {
+        DeleteObject(hover_brush_);
+    }
     if (drop_target_) {
         drop_target_->revokeTarget();
         drop_target_->Release();
@@ -80,6 +89,10 @@ bool DirectoryTree::create(HWND parent, HINSTANCE hInstance, int id) {
 
         TreeView_SetImageList(hwnd_, image_list_, TVSIL_NORMAL);
     }
+
+    // Subclass for hover tracking
+    SetWindowSubclass(hwnd_, subclassProc, 0, reinterpret_cast<DWORD_PTR>(this));
+    hover_brush_ = CreateSolidBrush(RGB(0xE5, 0xE5, 0xE5));
 
     return true;
 }
@@ -244,7 +257,70 @@ void DirectoryTree::refreshPath(const std::filesystem::path& path) {
     }
 }
 
-bool DirectoryTree::handleNotify(NMHDR* nmhdr) {
+LRESULT CALLBACK DirectoryTree::subclassProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam,
+                                              UINT_PTR /*subclass_id*/, DWORD_PTR ref_data) {
+    auto* self = reinterpret_cast<DirectoryTree*>(ref_data);
+
+    switch (msg) {
+    case WM_MOUSEMOVE: {
+        TVHITTESTINFO ht = {};
+        ht.pt = {GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam)};
+        HTREEITEM hit_item = TreeView_HitTest(hwnd, &ht);
+        if (!(ht.flags & (TVHT_ONITEM | TVHT_ONITEMBUTTON | TVHT_ONITEMINDENT))) {
+            hit_item = nullptr;
+        }
+        self->updateHotItem(hit_item);
+
+        // Register for WM_MOUSELEAVE
+        TRACKMOUSEEVENT tme = {sizeof(tme), TME_LEAVE, hwnd, 0};
+        TrackMouseEvent(&tme);
+        break;
+    }
+    case WM_MOUSELEAVE:
+        self->updateHotItem(nullptr);
+        break;
+    case WM_LBUTTONDOWN:
+        // Clear hover highlight before selection processing to prevent
+        // flash of hover background + selection text color
+        self->updateHotItem(nullptr);
+        break;
+    }
+
+    return DefSubclassProc(hwnd, msg, wParam, lParam);
+}
+
+void DirectoryTree::updateHotItem(HTREEITEM new_item) {
+    if (hot_item_ == new_item) {
+        return;
+    }
+
+    RECT client_rc;
+    GetClientRect(hwnd_, &client_rc);
+
+    // Invalidate old hot item
+    if (hot_item_) {
+        RECT rc;
+        if (TreeView_GetItemRect(hwnd_, hot_item_, &rc, FALSE)) {
+            rc.left = 0;
+            rc.right = client_rc.right;
+            InvalidateRect(hwnd_, &rc, TRUE);
+        }
+    }
+
+    hot_item_ = new_item;
+
+    // Invalidate new hot item
+    if (hot_item_) {
+        RECT rc;
+        if (TreeView_GetItemRect(hwnd_, hot_item_, &rc, FALSE)) {
+            rc.left = 0;
+            rc.right = client_rc.right;
+            InvalidateRect(hwnd_, &rc, TRUE);
+        }
+    }
+}
+
+LRESULT DirectoryTree::handleNotify(NMHDR* nmhdr) {
     switch (nmhdr->code) {
     case TVN_SELCHANGEDW: {
         auto* nmtv = reinterpret_cast<NMTREEVIEWW*>(nmhdr);
@@ -252,7 +328,7 @@ bool DirectoryTree::handleNotify(NMHDR* nmhdr) {
         if (it != item_paths_.end() && selection_callback_) {
             selection_callback_(it->second);
         }
-        return true;
+        return 0;
     }
 
     case TVN_ITEMEXPANDINGW: {
@@ -260,11 +336,43 @@ bool DirectoryTree::handleNotify(NMHDR* nmhdr) {
         if (nmtv->action == TVE_EXPAND) {
             expandItem(nmtv->itemNew.hItem);
         }
-        return true;
+        return 0;
+    }
+
+    case NM_CUSTOMDRAW: {
+        auto* nmcd = reinterpret_cast<NMTVCUSTOMDRAW*>(nmhdr);
+
+        switch (nmcd->nmcd.dwDrawStage) {
+        case CDDS_PREPAINT:
+            return CDRF_NOTIFYITEMDRAW;
+
+        case CDDS_ITEMPREPAINT: {
+            auto item = reinterpret_cast<HTREEITEM>(nmcd->nmcd.dwItemSpec);
+            bool is_hot = (item == hot_item_ && hot_item_ != nullptr);
+            bool is_selected = (nmcd->nmcd.uItemState & CDIS_SELECTED) != 0
+                               || (item == TreeView_GetSelection(hwnd_));
+
+            if (is_hot && !is_selected) {
+                // Draw hover background across full row width
+                RECT row_rect;
+                TreeView_GetItemRect(hwnd_, item, &row_rect, FALSE);
+                RECT client_rc;
+                GetClientRect(hwnd_, &client_rc);
+                row_rect.left = 0;
+                row_rect.right = client_rc.right;
+
+                FillRect(nmcd->nmcd.hdc, &row_rect, hover_brush_);
+                nmcd->clrTextBk = RGB(0xE5, 0xE5, 0xE5);
+                return CDRF_NEWFONT;
+            }
+            return CDRF_DODEFAULT;
+        }
+        }
+        return CDRF_DODEFAULT;
     }
 
     default:
-        return false;
+        return 0;
     }
 }
 
@@ -462,10 +570,22 @@ void DirectoryTree::setupDropTarget() {
     };
 
     auto get_drop_path = [this](POINT screen_pt) -> std::filesystem::path {
+        // Update hover highlight during drag
+        POINT client_pt = screen_pt;
+        ScreenToClient(hwnd_, &client_pt);
+        TVHITTESTINFO ht = {};
+        ht.pt = client_pt;
+        HTREEITEM hit_item = TreeView_HitTest(hwnd_, &ht);
+        if (!(ht.flags & (TVHT_ONITEM | TVHT_ONITEMBUTTON | TVHT_ONITEMINDENT))) {
+            hit_item = nullptr;
+        }
+        updateHotItem(hit_item);
+
         return getPathAtPoint(screen_pt);
     };
 
     drop_target_ = new DropTarget(hwnd_, on_drop, get_drop_path);
+    drop_target_->onDragEnd([this]() { updateHotItem(nullptr); });
     drop_target_->registerTarget();
 }
 

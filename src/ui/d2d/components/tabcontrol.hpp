@@ -97,6 +97,7 @@ public:
     bool onKeyDown(const KeyEvent& event) override;
     bool onKeyUp(const KeyEvent& event) override;
     bool onChar(const KeyEvent& event) override;
+    void onFocusChanged(const FocusEvent& event) override;
 
     /// @brief Create resources (call before first render)
     void createResources(DeviceResources& resources);

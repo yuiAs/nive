@@ -9,7 +9,9 @@ namespace nive::ui::d2d {
 
 static const std::wstring kEmptyString;
 
-D2DTabControl::D2DTabControl() = default;
+D2DTabControl::D2DTabControl() {
+    focusable_ = true;
+}
 
 int D2DTabControl::addTab(const std::wstring& title,
                           std::unique_ptr<D2DContainerComponent> content) {
@@ -276,6 +278,20 @@ void D2DTabControl::render(ID2D1RenderTarget* rt) {
             }
         }
 
+        // Draw focus indicator on selected tab when tab strip is focused
+        if (is_selected && focused_ && !focused_child_) {
+            // Draw accent-colored underline at bottom of selected tab
+            D2D1_POINT_2F fl = D2D1::Point2F(abs_tab.x + 2.0f, abs_tab.bottom() - 1.0f);
+            D2D1_POINT_2F fr = D2D1::Point2F(abs_tab.right() - 2.0f, abs_tab.bottom() - 1.0f);
+            if (tab_border_brush_) {
+                // Temporarily use accent color
+                auto old_color = tab_border_brush_->GetColor();
+                tab_border_brush_->SetColor(CommonStyle::borderFocused().toD2D());
+                rt->DrawLine(fl, fr, tab_border_brush_.Get(), 2.0f);
+                tab_border_brush_->SetColor(old_color);
+            }
+        }
+
         // Draw tab text
         if (tab_text_brush_ && text_format_) {
             rt->DrawTextW(tab.title.c_str(), static_cast<UINT32>(tab.title.length()),
@@ -401,13 +417,28 @@ bool D2DTabControl::onMouseLeave(const MouseEvent& event) {
 }
 
 bool D2DTabControl::onKeyDown(const KeyEvent& event) {
-    // Forward to selected tab's content
-    if (selected_index_ >= 0 && selected_index_ < static_cast<int>(tabs_.size())) {
-        auto& content = tabs_[selected_index_].content;
-        if (content) {
-            return content->onKeyDown(event);
+    // If a child within tab content has focus, forward to it
+    if (focused_child_) {
+        if (focused_child_->onKeyDown(event)) {
+            return true;
         }
     }
+
+    // Arrow keys switch tabs when TabControl itself has focus
+    if (event.keyCode == VK_LEFT || event.keyCode == VK_RIGHT) {
+        int count = static_cast<int>(tabs_.size());
+        if (count > 1) {
+            int new_index = selected_index_;
+            if (event.keyCode == VK_RIGHT) {
+                new_index = (selected_index_ + 1) % count;
+            } else {
+                new_index = (selected_index_ + count - 1) % count;
+            }
+            setSelectedIndex(new_index);
+            return true;
+        }
+    }
+
     return false;
 }
 
@@ -431,6 +462,19 @@ bool D2DTabControl::onChar(const KeyEvent& event) {
         }
     }
     return false;
+}
+
+void D2DTabControl::onFocusChanged(const FocusEvent& event) {
+    if (event.gained) {
+        // When the tab strip itself gains focus (via Tab key),
+        // clear the internal focused_child_ so findFocusedLeaf knows
+        // the TabControl itself is the focus target, not its content.
+        if (focused_child_) {
+            focused_child_->setFocused(false);
+            focused_child_ = nullptr;
+        }
+    }
+    invalidate();
 }
 
 }  // namespace nive::ui::d2d

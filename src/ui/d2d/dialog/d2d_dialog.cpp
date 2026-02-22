@@ -367,8 +367,11 @@ void D2DDialog::collectFocusableComponents(D2DContainerComponent* container,
             continue;
         }
 
-        // Special handling for TabControl: only recurse into selected tab content
+        // Special handling for TabControl: add itself as tab stop, then content
         if (auto* tab_ctrl = dynamic_cast<D2DTabControl*>(child)) {
+            if (tab_ctrl->canReceiveFocus()) {
+                out.push_back(tab_ctrl);
+            }
             if (auto* content = tab_ctrl->selectedContent()) {
                 collectFocusableComponents(content, out);
             }
@@ -378,12 +381,10 @@ void D2DDialog::collectFocusableComponents(D2DContainerComponent* container,
         // Special handling for RadioButton groups: only add the tabbable button
         if (auto* radio = dynamic_cast<D2DRadioButton*>(child)) {
             if (auto* group = radio->group()) {
-                // Check if this group's tabbable button has already been added
                 auto* tabbable = group->tabbableButton();
                 if (tabbable && tabbable == radio) {
                     out.push_back(tabbable);
                 }
-                // Skip non-tabbable radio buttons in a group
                 continue;
             }
             // Ungrouped radio button: fall through to normal handling
@@ -405,16 +406,25 @@ D2DUIComponent* D2DDialog::findFocusedLeaf() const {
         if (!focused) {
             return nullptr;
         }
-        if (auto* container = dynamic_cast<D2DContainerComponent*>(focused)) {
-            // Special handling for TabControl: follow into selected content
-            if (auto* tab_ctrl = dynamic_cast<D2DTabControl*>(focused)) {
-                auto* content = tab_ctrl->selectedContent();
-                if (content && content->focusedChild()) {
-                    current = content;
-                    continue;
-                }
-                return nullptr;
+
+        // Special handling for TabControl
+        if (auto* tab_ctrl = dynamic_cast<D2DTabControl*>(focused)) {
+            // If TabControl has no focused child (i.e., the tab strip itself is focused)
+            if (!tab_ctrl->focusedChild()) {
+                return tab_ctrl;
             }
+            // TabControl's focused_child_ is the content panel;
+            // follow through content to find the actual leaf
+            auto* content = tab_ctrl->selectedContent();
+            if (content && content->focusedChild()) {
+                current = content;
+                continue;
+            }
+            // Content has no focused child: TabControl itself is the focus target
+            return tab_ctrl;
+        }
+
+        if (auto* container = dynamic_cast<D2DContainerComponent*>(focused)) {
             current = container;
         } else {
             return focused;
@@ -424,22 +434,9 @@ D2DUIComponent* D2DDialog::findFocusedLeaf() const {
 }
 
 bool D2DDialog::advanceFocus(bool forward) {
+    // Collect all focusable components from the entire dialog tree
     std::vector<D2DUIComponent*> focusable;
-    for (size_t i = 0; i < childCount(); ++i) {
-        auto* child = childAt(i);
-        if (auto* container = dynamic_cast<D2DContainerComponent*>(child)) {
-            // For TabControl, only collect from selected tab
-            if (auto* tab_ctrl = dynamic_cast<D2DTabControl*>(child)) {
-                if (auto* content = tab_ctrl->selectedContent()) {
-                    collectFocusableComponents(content, focusable);
-                }
-            } else {
-                collectFocusableComponents(container, focusable);
-            }
-        } else if (child && child->canReceiveFocus()) {
-            focusable.push_back(child);
-        }
-    }
+    collectFocusableComponents(const_cast<D2DDialog*>(this), focusable);
 
     if (focusable.empty()) {
         return false;

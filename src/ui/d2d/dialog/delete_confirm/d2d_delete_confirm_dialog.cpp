@@ -128,6 +128,9 @@ void D2DDeleteConfirmDialog::createComponents() {
     });
     cancel_button_ = cancel_btn.get();
     addChild(std::move(cancel_btn));
+
+    // Default to Cancel for destructive operation dialogs
+    setDefaultButton(cancel_button_);
 }
 
 void D2DDeleteConfirmDialog::layoutComponents() {

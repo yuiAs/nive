@@ -143,8 +143,14 @@ bool D2DDialog::createWindow(HWND parent) {
     ShowWindow(hwnd_, SW_SHOW);
     UpdateWindow(hwnd_);
 
-    // Set initial focus to the first focusable component
+    // Initialize focus chain with the first focusable component
     advanceFocus(true);
+
+    // Then move focus to the default button if one is set
+    if (default_button_ && default_button_->canReceiveFocus() && default_button_->parent()) {
+        default_button_->parent()->requestFocus(default_button_);
+        invalidate();
+    }
 
     return true;
 }

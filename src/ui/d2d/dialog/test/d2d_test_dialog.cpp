@@ -54,6 +54,8 @@ void D2DTestDialog::createComponents() {
     close->onClick([this]() { endDialog(IDOK); });
     close_button_ = close.get();
     addChild(std::move(close));
+
+    setDefaultButton(close_button_);
 }
 
 std::unique_ptr<D2DContainerComponent> D2DTestDialog::createBasicTab() {

@@ -303,6 +303,8 @@ void D2DFileConflictDialog::createComponents() {
     });
     cancel_button_ = cancel.get();
     addChild(std::move(cancel));
+
+    setDefaultButton(ok_button_);
 }
 
 void D2DFileConflictDialog::layoutComponents() {

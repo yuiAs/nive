@@ -49,6 +49,9 @@ INT_PTR D2DDialog::showModal(HWND parent) {
     parent_ = parent;
     result_ = IDCANCEL;
 
+    // Save the keyboard focus before the dialog takes it
+    HWND saved_focus = GetFocus();
+
     if (!createWindow(parent)) {
         return IDCANCEL;
     }
@@ -67,13 +70,18 @@ INT_PTR D2DDialog::showModal(HWND parent) {
         DispatchMessageW(&msg);
     }
 
-    // Re-enable parent window
+    // Re-enable parent window and restore keyboard focus
     if (parent) {
         EnableWindow(parent, TRUE);
         SetForegroundWindow(parent);
     }
 
     destroyWindow();
+
+    // Restore the keyboard focus that was active before the dialog
+    if (saved_focus && IsWindow(saved_focus)) {
+        SetFocus(saved_focus);
+    }
 
     return result_;
 }

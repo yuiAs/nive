@@ -172,6 +172,18 @@ enter_filename = "Please enter a file name."
 invalid_filename = "The file name contains invalid characters."
 validation_error = "Validation Error"
 
+# Context menu (thumbnail grid)
+[context_menu]
+open = "&Open"
+rename = "R&ename"
+delete = "&Delete"
+
+# Rename dialog
+[dialog.rename]
+title = "Rename"
+ok = "OK"
+cancel = "Cancel"
+
 # File operation messages
 [file_operation]
 copy = "Copy"

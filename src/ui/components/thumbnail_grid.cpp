@@ -8,6 +8,8 @@
 
 #include <algorithm>
 
+#include "core/fs/file_operations.hpp"
+#include "core/i18n/i18n.hpp"
 #include "core/util/logger.hpp"
 #include "core/util/string_utils.hpp"
 #include "dnd/drop_source.hpp"
@@ -15,6 +17,7 @@
 #include "ui/app.hpp"
 #include "ui/d2d/core/bitmap_utils.hpp"
 #include "ui/d2d/core/d2d_factory.hpp"
+#include "ui/d2d/dialog/rename/d2d_rename_dialog.hpp"
 
 namespace nive::ui {
 
@@ -280,6 +283,10 @@ LRESULT ThumbnailGrid::handleMessage(UINT msg, WPARAM wParam, LPARAM lParam) {
     case WM_CAPTURECHANGED:
         drag_pending_ = false;
         scrollbar_dragging_ = false;
+        return 0;
+
+    case WM_RBUTTONUP:
+        onRbuttonup(GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam));
         return 0;
 
     case WM_LBUTTONDBLCLK:
@@ -553,6 +560,65 @@ void ThumbnailGrid::onLbuttondblclk(int x, int y) {
     size_t index = hitTest(x, y);
     if (index != SIZE_MAX && item_activated_callback_) {
         item_activated_callback_(index);
+    }
+}
+
+void ThumbnailGrid::onRbuttonup(int x, int y) {
+    size_t index = hitTest(x, y);
+    if (index == SIZE_MAX) {
+        return;
+    }
+    showContextMenu(x, y, index);
+}
+
+void ThumbnailGrid::showContextMenu(int x, int y, size_t index) {
+    // Context menu command IDs
+    constexpr UINT kCmdOpen = 1;
+    constexpr UINT kCmdRename = 2;
+    constexpr UINT kCmdDelete = 3;
+
+    HMENU menu = CreatePopupMenu();
+    if (!menu) {
+        return;
+    }
+
+    AppendMenuW(menu, MF_STRING, kCmdOpen, i18n::tr("context_menu.open").c_str());
+    AppendMenuW(menu, MF_STRING, kCmdRename, i18n::tr("context_menu.rename").c_str());
+    AppendMenuW(menu, MF_SEPARATOR, 0, nullptr);
+    AppendMenuW(menu, MF_STRING, kCmdDelete, i18n::tr("context_menu.delete").c_str());
+
+    POINT pt = {x, y};
+    ClientToScreen(hwnd_, &pt);
+
+    UINT cmd = TrackPopupMenu(menu, TPM_RETURNCMD | TPM_NONOTIFY, pt.x, pt.y, 0, hwnd_, nullptr);
+    DestroyMenu(menu);
+
+    switch (cmd) {
+    case kCmdOpen:
+        if (item_activated_callback_) {
+            item_activated_callback_(index);
+        }
+        break;
+
+    case kCmdRename: {
+        if (index >= items_.size() || items_[index].is_in_archive()) {
+            break;
+        }
+        d2d::D2DRenameDialog dialog;
+        auto new_name = dialog.show(hwnd_, items_[index].name);
+        if (new_name && rename_requested_callback_) {
+            rename_requested_callback_(index, *new_name);
+        }
+        break;
+    }
+
+    case kCmdDelete: {
+        auto paths = selectedFilePaths();
+        if (!paths.empty() && delete_requested_callback_) {
+            delete_requested_callback_(paths);
+        }
+        break;
+    }
     }
 }
 

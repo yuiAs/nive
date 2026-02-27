@@ -72,6 +72,15 @@ void D2DEditBox::selectAll() {
     invalidate();
 }
 
+void D2DEditBox::setSelection(size_t start, size_t end) {
+    start = std::min(start, text_.length());
+    end = std::min(end, text_.length());
+    selection_start_ = start;
+    selection_end_ = end;
+    caret_pos_ = end;
+    invalidate();
+}
+
 void D2DEditBox::clearSelection() {
     selection_start_ = selection_end_ = caret_pos_;
     invalidate();

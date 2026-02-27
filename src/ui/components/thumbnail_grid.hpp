@@ -33,6 +33,7 @@ public:
     using ThumbnailRequestCallback = std::function<void(const archive::VirtualPath&)>;
     using DragStartCallback = std::function<void(const std::vector<std::filesystem::path>&)>;
     using DeleteRequestedCallback = std::function<void(const std::vector<std::filesystem::path>&)>;
+    using RenameRequestedCallback = std::function<void(size_t index, const std::wstring& new_name)>;
 
     ThumbnailGrid();
     ~ThumbnailGrid();
@@ -104,6 +105,10 @@ public:
         delete_requested_callback_ = std::move(callback);
     }
 
+    void onRenameRequested(RenameRequestedCallback callback) {
+        rename_requested_callback_ = std::move(callback);
+    }
+
     /// @brief Get file paths for selected items
     /// @return List of file paths (excludes archive entries)
     [[nodiscard]] std::vector<std::filesystem::path> selectedFilePaths() const;
@@ -126,8 +131,10 @@ private:
     void onMousewheel(int delta);
     void onLbuttondown(int x, int y, WPARAM keys);
     void onLbuttondblclk(int x, int y);
+    void onRbuttonup(int x, int y);
     void onMousemove(int x, int y, WPARAM keys);
     void onKeydown(int vk);
+    void showContextMenu(int x, int y, size_t index);
 
     void beginDrag();
 
@@ -193,6 +200,7 @@ private:
     ThumbnailRequestCallback thumbnail_request_callback_;
     DragStartCallback drag_start_callback_;
     DeleteRequestedCallback delete_requested_callback_;
+    RenameRequestedCallback rename_requested_callback_;
 
     // Drag state
     bool drag_pending_ = false;

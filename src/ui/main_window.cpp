@@ -690,6 +690,22 @@ void MainWindow::createChildControls() {
         }
     });
 
+    grid_->onRenameRequested([this](size_t index, const std::wstring& new_name) {
+        auto file = App::instance().state().fileAt(index);
+        if (!file) {
+            return;
+        }
+        auto result = fs::renameFile(file->path, new_name);
+        if (result) {
+            App::instance().refresh();
+        } else {
+            auto msg = std::wstring(L"Failed to rename: ") +
+                       std::wstring(to_string(result.error()).begin(),
+                                    to_string(result.error()).end());
+            MessageBoxW(hwnd_, msg.c_str(), L"Error", MB_OK | MB_ICONERROR);
+        }
+    });
+
     // Create file operation manager
     file_op_manager_ = std::make_unique<FileOperationManager>(hwnd_);
 

@@ -30,6 +30,7 @@ target_sources(nive_d2d_ui
         dialog/settings/d2d_settings_dialog.cpp
         dialog/file_conflict/d2d_file_conflict_dialog.cpp
         dialog/delete_confirm/d2d_delete_confirm_dialog.cpp
+        dialog/rename/d2d_rename_dialog.cpp
 )
 
 # Debug test dialog - enabled for Debug builds or explicitly via option

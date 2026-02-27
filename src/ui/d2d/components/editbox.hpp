@@ -59,6 +59,7 @@ public:
     [[nodiscard]] bool hasSelection() const noexcept { return selection_start_ != selection_end_; }
     [[nodiscard]] std::wstring selectedText() const;
     void selectAll();
+    void setSelection(size_t start, size_t end);
     void clearSelection();
 
     /// @brief Set text change callback

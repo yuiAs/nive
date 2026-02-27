@@ -84,6 +84,9 @@ void ThumbnailGrid::setBounds(int x, int y, int width, int height) {
 }
 
 void ThumbnailGrid::setItems(const std::vector<fs::FileMetadata>& items, bool preserve_scroll) {
+    cancelPendingInlineEdit();
+    cancelInlineEdit();
+
     items_ = items;
     thumbnails_.clear();
     selected_.assign(items.size(), false);
@@ -272,10 +275,33 @@ LRESULT ThumbnailGrid::handleMessage(UINT msg, WPARAM wParam, LPARAM lParam) {
             ReleaseCapture();
             InvalidateRect(hwnd_, nullptr, FALSE);
         }
+        if (isInlineEditing()) {
+            // Forward mouse up to editbox
+            d2d::MouseEvent me;
+            me.position = {static_cast<float>(GET_X_LPARAM(lParam)),
+                           static_cast<float>(GET_Y_LPARAM(lParam))};
+            me.button = d2d::MouseButton::Left;
+            inline_edit_->onMouseUp(me);
+            InvalidateRect(hwnd_, nullptr, FALSE);
+        }
         // Apply deferred single-selection (click on already-selected item without drag)
         if (deferred_select_index_ != SIZE_MAX) {
+            size_t deferred_idx = deferred_select_index_;
             selectSingle(deferred_select_index_);
             deferred_select_index_ = SIZE_MAX;
+
+            // Start delayed inline edit timer if click was on text area
+            if (!isInlineEditing() && deferred_idx < items_.size() &&
+                !items_[deferred_idx].is_in_archive()) {
+                D2D1_RECT_F text_rect = getTextRect(deferred_idx);
+                float fx = static_cast<float>(GET_X_LPARAM(lParam));
+                float fy = static_cast<float>(GET_Y_LPARAM(lParam));
+                if (fx >= text_rect.left && fx <= text_rect.right && fy >= text_rect.top &&
+                    fy <= text_rect.bottom) {
+                    pending_inline_edit_index_ = deferred_idx;
+                    SetTimer(hwnd_, kInlineEditTimerId, GetDoubleClickTime(), nullptr);
+                }
+            }
         }
         drag_pending_ = false;
         return 0;
@@ -297,6 +323,21 @@ LRESULT ThumbnailGrid::handleMessage(UINT msg, WPARAM wParam, LPARAM lParam) {
         onKeydown(static_cast<int>(wParam));
         return 0;
 
+    case WM_CHAR:
+        if (isInlineEditing()) {
+            d2d::KeyEvent ke;
+            ke.character = static_cast<wchar_t>(wParam);
+            inline_edit_->onChar(ke);
+            InvalidateRect(hwnd_, nullptr, FALSE);
+        }
+        return 0;
+
+    case WM_KILLFOCUS:
+        cancelPendingInlineEdit();
+        cancelInlineEdit();
+        InvalidateRect(hwnd_, nullptr, FALSE);
+        return 0;
+
     case WM_ERASEBKGND:
         return 1;  // D2D handles painting
 
@@ -309,10 +350,22 @@ LRESULT ThumbnailGrid::handleMessage(UINT msg, WPARAM wParam, LPARAM lParam) {
             requestVisibleThumbnails();
             return 0;
         }
+        if (wParam == kInlineEditTimerId) {
+            KillTimer(hwnd_, kInlineEditTimerId);
+            size_t idx = pending_inline_edit_index_;
+            pending_inline_edit_index_ = SIZE_MAX;
+            // Verify conditions: still focused, selected, same item, not in archive
+            if (idx < items_.size() && idx == focused_index_ && selected_[idx] &&
+                !items_[idx].is_in_archive()) {
+                beginInlineEdit(idx);
+            }
+            return 0;
+        }
         return DefWindowProcW(hwnd_, msg, wParam, lParam);
 
     case WM_NCDESTROY:
         KillTimer(hwnd_, kScrollDebounceTimerId);
+        KillTimer(hwnd_, kInlineEditTimerId);
         return DefWindowProcW(hwnd_, msg, wParam, lParam);
 
     case WM_DPICHANGED: {
@@ -412,15 +465,18 @@ void ThumbnailGrid::onPaint() {
         }
 
         // Filename text
-        D2D1_RECT_F text_rect = D2D1::RectF(
-            static_cast<float>(item_rect.left + 4),
-            static_cast<float>(item_rect.top + kItemPadding + thumbnail_size_ + 2),
-            static_cast<float>(item_rect.right - 4), static_cast<float>(item_rect.bottom));
+        D2D1_RECT_F text_rect = getTextRect(i);
 
-        auto* text_color_brush = is_selected ? selection_text_brush_.Get() : text_brush_.Get();
-        rt->DrawText(item.name.c_str(), static_cast<UINT32>(item.name.length()),
-                     text_format_.Get(), text_rect, text_color_brush,
-                     D2D1_DRAW_TEXT_OPTIONS_CLIP);
+        if (isInlineEditing() && i == inline_edit_index_) {
+            // Render inline edit box instead of static text
+            inline_edit_->arrange(d2d::Rect::fromD2D(text_rect));
+            inline_edit_->render(rt);
+        } else {
+            auto* text_color_brush = is_selected ? selection_text_brush_.Get() : text_brush_.Get();
+            rt->DrawText(item.name.c_str(), static_cast<UINT32>(item.name.length()),
+                         text_format_.Get(), text_rect, text_color_brush,
+                         D2D1_DRAW_TEXT_OPTIONS_CLIP);
+        }
 
         // Focus rectangle
         if (is_focused && GetFocus() == hwnd_) {
@@ -452,6 +508,9 @@ void ThumbnailGrid::onSize(int width, int height) {
 }
 
 void ThumbnailGrid::onMousewheel(int delta) {
+    cancelPendingInlineEdit();
+    cancelInlineEdit();
+
     // Ctrl+Wheel: adjust thumbnail display size
     if (GetKeyState(VK_CONTROL) & 0x8000) {
         constexpr int kMinDisplaySize = 64;
@@ -481,6 +540,27 @@ void ThumbnailGrid::onMousewheel(int delta) {
 }
 
 void ThumbnailGrid::onLbuttondown(int x, int y, WPARAM keys) {
+    cancelPendingInlineEdit();
+
+    // Handle inline edit: click inside editbox forwards, click outside cancels
+    if (isInlineEditing()) {
+        D2D1_RECT_F text_rect = getTextRect(inline_edit_index_);
+        float fx = static_cast<float>(x);
+        float fy = static_cast<float>(y);
+        if (fx >= text_rect.left && fx <= text_rect.right && fy >= text_rect.top &&
+            fy <= text_rect.bottom) {
+            // Forward to editbox for caret positioning
+            d2d::MouseEvent me;
+            me.position = {fx, fy};
+            me.button = d2d::MouseButton::Left;
+            inline_edit_->onMouseDown(me);
+            InvalidateRect(hwnd_, nullptr, FALSE);
+            return;
+        }
+        // Click outside edit area — cancel
+        cancelInlineEdit();
+    }
+
     // Check scrollbar interaction first
     if (max_scroll_ > 0) {
         float fx = static_cast<float>(x);
@@ -490,6 +570,7 @@ void ThumbnailGrid::onLbuttondown(int x, int y, WPARAM keys) {
 
         if (thumb.contains(fx, fy)) {
             // Start scrollbar thumb drag
+            cancelInlineEdit();
             scrollbar_dragging_ = true;
             scrollbar_drag_start_offset_ = static_cast<float>(scroll_pos_);
             scrollbar_drag_start_y_ = fy;
@@ -571,6 +652,8 @@ void ThumbnailGrid::onLbuttondown(int x, int y, WPARAM keys) {
 }
 
 void ThumbnailGrid::onLbuttondblclk(int x, int y) {
+    cancelPendingInlineEdit();
+    cancelInlineEdit();
     drag_pending_ = false;  // Cancel any pending drag
     size_t index = hitTest(x, y);
     if (index != SIZE_MAX && item_activated_callback_) {
@@ -579,6 +662,8 @@ void ThumbnailGrid::onLbuttondblclk(int x, int y) {
 }
 
 void ThumbnailGrid::onRbuttonup(int x, int y) {
+    cancelPendingInlineEdit();
+    cancelInlineEdit();
     size_t index = hitTest(x, y);
     if (index == SIZE_MAX) {
         return;
@@ -638,6 +723,16 @@ void ThumbnailGrid::showContextMenu(int x, int y, size_t index) {
 }
 
 void ThumbnailGrid::onMousemove(int x, int y, WPARAM keys) {
+    // Forward mouse move to editbox for text selection drag
+    if (isInlineEditing() && (keys & MK_LBUTTON)) {
+        d2d::MouseEvent me;
+        me.position = {static_cast<float>(x), static_cast<float>(y)};
+        me.button = d2d::MouseButton::Left;
+        inline_edit_->onMouseMove(me);
+        InvalidateRect(hwnd_, nullptr, FALSE);
+        return;
+    }
+
     // Handle scrollbar dragging
     if (scrollbar_dragging_) {
         float fy = static_cast<float>(y);
@@ -728,6 +823,33 @@ void ThumbnailGrid::onKeydown(int vk) {
         return;
     }
 
+    // Inline edit event forwarding
+    if (isInlineEditing()) {
+        if (vk == VK_RETURN) {
+            commitInlineEdit();
+            return;
+        }
+        if (vk == VK_ESCAPE) {
+            cancelInlineEdit();
+            return;
+        }
+        // Forward all other keys to editbox
+        d2d::KeyEvent ke;
+        ke.keyCode = static_cast<uint32_t>(vk);
+        ke.modifiers = d2d::Modifiers::None;
+        if (GetKeyState(VK_SHIFT) & 0x8000)
+            ke.modifiers = ke.modifiers | d2d::Modifiers::Shift;
+        if (GetKeyState(VK_CONTROL) & 0x8000)
+            ke.modifiers = ke.modifiers | d2d::Modifiers::Ctrl;
+        if (GetKeyState(VK_MENU) & 0x8000)
+            ke.modifiers = ke.modifiers | d2d::Modifiers::Alt;
+        inline_edit_->onKeyDown(ke);
+        InvalidateRect(hwnd_, nullptr, FALSE);
+        return;
+    }
+
+    cancelPendingInlineEdit();
+
     size_t new_focus = focused_index_;
 
     switch (vk) {
@@ -782,6 +904,17 @@ void ThumbnailGrid::onKeydown(int vk) {
             InvalidateRect(hwnd_, nullptr, FALSE);
             if (selection_changed_callback_) {
                 selection_changed_callback_(selectedIndices());
+            }
+        }
+        return;
+
+    case VK_F2:
+        if (focused_index_ != SIZE_MAX && focused_index_ < items_.size() &&
+            selected_[focused_index_] && !items_[focused_index_].is_in_archive()) {
+            // Only allow F2 rename when exactly one item is selected
+            auto sel = selectedIndices();
+            if (sel.size() == 1) {
+                beginInlineEdit(focused_index_);
             }
         }
         return;
@@ -894,6 +1027,92 @@ RECT ThumbnailGrid::getItemRect(size_t index) const {
     rc.bottom = rc.top + item_height_;
 
     return rc;
+}
+
+D2D1_RECT_F ThumbnailGrid::getTextRect(size_t index) const {
+    RECT item_rect = getItemRect(index);
+    return D2D1::RectF(static_cast<float>(item_rect.left + 4),
+                       static_cast<float>(item_rect.top + kItemPadding + thumbnail_size_ + 2),
+                       static_cast<float>(item_rect.right - 4),
+                       static_cast<float>(item_rect.bottom));
+}
+
+void ThumbnailGrid::beginInlineEdit(size_t index) {
+    if (index >= items_.size() || items_[index].is_in_archive()) {
+        return;
+    }
+    cancelPendingInlineEdit();
+
+    inline_edit_index_ = index;
+    inline_edit_original_name_ = items_[index].name;
+
+    if (!inline_edit_) {
+        inline_edit_ = std::make_unique<d2d::D2DEditBox>();
+        inline_edit_->createResources(device_resources_);
+        inline_edit_->setMaxLength(255);
+    }
+
+    inline_edit_->setText(inline_edit_original_name_);
+
+    // Select filename stem (exclude extension), matching D2DRenameDialog logic
+    auto dot_pos = inline_edit_original_name_.rfind(L'.');
+    if (dot_pos != std::wstring::npos && dot_pos > 0) {
+        inline_edit_->setSelection(0, dot_pos);
+    } else {
+        inline_edit_->selectAll();
+    }
+
+    // Layout the edit box
+    D2D1_RECT_F text_rect = getTextRect(index);
+    d2d::Size available{text_rect.right - text_rect.left, text_rect.bottom - text_rect.top};
+    inline_edit_->measure(available);
+    inline_edit_->arrange(d2d::Rect::fromD2D(text_rect));
+    inline_edit_->setFocused(true);
+
+    InvalidateRect(hwnd_, nullptr, FALSE);
+}
+
+void ThumbnailGrid::commitInlineEdit() {
+    if (!isInlineEditing()) {
+        return;
+    }
+
+    auto new_name = inline_edit_->text();
+    size_t index = inline_edit_index_;
+
+    // Clear edit state first
+    inline_edit_->setFocused(false);
+    inline_edit_index_ = SIZE_MAX;
+    inline_edit_original_name_.clear();
+
+    // Commit only if name actually changed and is valid
+    if (new_name != items_[index].name && !new_name.empty() &&
+        fs::isValidFilename(new_name)) {
+        if (rename_requested_callback_) {
+            rename_requested_callback_(index, new_name);
+        }
+    }
+
+    InvalidateRect(hwnd_, nullptr, FALSE);
+}
+
+void ThumbnailGrid::cancelInlineEdit() {
+    if (!isInlineEditing()) {
+        return;
+    }
+
+    inline_edit_->setFocused(false);
+    inline_edit_index_ = SIZE_MAX;
+    inline_edit_original_name_.clear();
+
+    InvalidateRect(hwnd_, nullptr, FALSE);
+}
+
+void ThumbnailGrid::cancelPendingInlineEdit() {
+    if (pending_inline_edit_index_ != SIZE_MAX) {
+        KillTimer(hwnd_, kInlineEditTimerId);
+        pending_inline_edit_index_ = SIZE_MAX;
+    }
 }
 
 void ThumbnailGrid::requestVisibleThumbnails() {

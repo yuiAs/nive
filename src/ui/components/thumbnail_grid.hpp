@@ -17,6 +17,7 @@
 #include "core/fs/file_metadata.hpp"
 #include "core/image/decoded_image.hpp"
 #include "core/util/com_ptr.hpp"
+#include "ui/d2d/components/editbox.hpp"
 #include "ui/d2d/core/device_resources.hpp"
 #include "ui/d2d/core/types.hpp"
 
@@ -141,6 +142,14 @@ private:
     void onKeydown(int vk);
     void showContextMenu(int x, int y, size_t index);
 
+    // Inline rename
+    void beginInlineEdit(size_t index);
+    void commitInlineEdit();
+    void cancelInlineEdit();
+    [[nodiscard]] bool isInlineEditing() const noexcept { return inline_edit_index_ != SIZE_MAX; }
+    void cancelPendingInlineEdit();
+    [[nodiscard]] D2D1_RECT_F getTextRect(size_t index) const;
+
     void beginDrag();
 
     void updateLayout();
@@ -208,6 +217,13 @@ private:
     DragStartCallback drag_start_callback_;
     DeleteRequestedCallback delete_requested_callback_;
     RenameRequestedCallback rename_requested_callback_;
+
+    // Inline rename state
+    std::unique_ptr<d2d::D2DEditBox> inline_edit_;
+    size_t inline_edit_index_ = SIZE_MAX;
+    std::wstring inline_edit_original_name_;
+    static constexpr UINT_PTR kInlineEditTimerId = 2;
+    size_t pending_inline_edit_index_ = SIZE_MAX;
 
     // Drag state
     bool drag_pending_ = false;

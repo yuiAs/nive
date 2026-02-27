@@ -31,6 +31,7 @@ public:
     using ItemActivatedCallback = std::function<void(size_t index)>;
     using SelectionChangedCallback = std::function<void(const std::vector<size_t>&)>;
     using ThumbnailRequestCallback = std::function<void(const archive::VirtualPath&)>;
+    using ThumbnailCancelCallback = std::function<void()>;
     using DragStartCallback = std::function<void(const std::vector<std::filesystem::path>&)>;
     using DeleteRequestedCallback = std::function<void(const std::vector<std::filesystem::path>&)>;
     using RenameRequestedCallback = std::function<void(size_t index, const std::wstring& new_name)>;
@@ -99,6 +100,10 @@ public:
         thumbnail_request_callback_ = std::move(callback);
     }
 
+    void onThumbnailCancel(ThumbnailCancelCallback callback) {
+        thumbnail_cancel_callback_ = std::move(callback);
+    }
+
     void onDragStart(DragStartCallback callback) { drag_start_callback_ = std::move(callback); }
 
     void onDeleteRequested(DeleteRequestedCallback callback) {
@@ -143,6 +148,7 @@ private:
     size_t hitTest(int x, int y) const;
     RECT getItemRect(size_t index) const;
     void requestVisibleThumbnails();
+    void scheduleScrollThumbnailRequest();
 
     // D2D resource management
     void createD2DResources();
@@ -198,6 +204,7 @@ private:
     ItemActivatedCallback item_activated_callback_;
     SelectionChangedCallback selection_changed_callback_;
     ThumbnailRequestCallback thumbnail_request_callback_;
+    ThumbnailCancelCallback thumbnail_cancel_callback_;
     DragStartCallback drag_start_callback_;
     DeleteRequestedCallback delete_requested_callback_;
     RenameRequestedCallback rename_requested_callback_;
@@ -214,6 +221,10 @@ private:
     float scrollbar_drag_start_offset_ = 0.0f;
     float scrollbar_drag_start_y_ = 0.0f;
     static constexpr float kScrollbarWidth = 12.0f;
+
+    // Scroll debounce timer
+    static constexpr UINT_PTR kScrollDebounceTimerId = 1;
+    static constexpr UINT kScrollDebounceMs = 150;
 
     static constexpr int kItemPadding = 8;
     static constexpr int kTextHeight = 32;

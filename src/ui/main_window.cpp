@@ -684,6 +684,8 @@ void MainWindow::createChildControls() {
         App::instance().requestThumbnail(path, thumbnail::Priority::High);
     });
 
+    grid_->onThumbnailCancel([]() { App::instance().thumbnails()->cancelAll(); });
+
     grid_->onDeleteRequested([this](const std::vector<std::filesystem::path>& files) {
         if (file_op_manager_) {
             file_op_manager_->deleteFiles(files);

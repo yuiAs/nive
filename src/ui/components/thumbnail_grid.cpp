@@ -300,6 +300,21 @@ LRESULT ThumbnailGrid::handleMessage(UINT msg, WPARAM wParam, LPARAM lParam) {
     case WM_ERASEBKGND:
         return 1;  // D2D handles painting
 
+    case WM_TIMER:
+        if (wParam == kScrollDebounceTimerId) {
+            KillTimer(hwnd_, kScrollDebounceTimerId);
+            if (thumbnail_cancel_callback_) {
+                thumbnail_cancel_callback_();
+            }
+            requestVisibleThumbnails();
+            return 0;
+        }
+        return DefWindowProcW(hwnd_, msg, wParam, lParam);
+
+    case WM_NCDESTROY:
+        KillTimer(hwnd_, kScrollDebounceTimerId);
+        return DefWindowProcW(hwnd_, msg, wParam, lParam);
+
     case WM_DPICHANGED: {
         UINT dpi = HIWORD(wParam);
         device_resources_.setDpi(static_cast<float>(dpi), static_cast<float>(dpi));
@@ -462,7 +477,7 @@ void ThumbnailGrid::onMousewheel(int delta) {
     scroll_pos_ = std::clamp(scroll_pos_ - scroll_amount, 0, max_scroll_);
 
     InvalidateRect(hwnd_, nullptr, FALSE);
-    requestVisibleThumbnails();
+    scheduleScrollThumbnailRequest();
 }
 
 void ThumbnailGrid::onLbuttondown(int x, int y, WPARAM keys) {
@@ -496,7 +511,7 @@ void ThumbnailGrid::onLbuttondown(int x, int y, WPARAM keys) {
             }
             scroll_pos_ = std::clamp(scroll_pos_, 0, max_scroll_);
             InvalidateRect(hwnd_, nullptr, FALSE);
-            requestVisibleThumbnails();
+            scheduleScrollThumbnailRequest();
             return;
         }
     }
@@ -637,7 +652,7 @@ void ThumbnailGrid::onMousemove(int x, int y, WPARAM keys) {
                                            scroll_ratio * static_cast<float>(max_scroll_));
             scroll_pos_ = std::clamp(scroll_pos_, 0, max_scroll_);
             InvalidateRect(hwnd_, nullptr, FALSE);
-            requestVisibleThumbnails();
+            scheduleScrollThumbnailRequest();
         }
         return;
     }
@@ -887,38 +902,48 @@ void ThumbnailGrid::requestVisibleThumbnails() {
         return;
     }
 
+    if (items_.empty() || columns_ <= 0 || item_height_ <= 0) {
+        return;
+    }
+
     RECT client_rect;
     GetClientRect(hwnd_, &client_rect);
+    int client_height = client_rect.bottom - client_rect.top;
+
+    // Compute visible row range via arithmetic instead of iterating all items
+    int first_row = scroll_pos_ / item_height_;
+    int last_row = (scroll_pos_ + client_height) / item_height_;
+    size_t first_idx = static_cast<size_t>(first_row) * columns_;
+    size_t last_idx =
+        (std::min)(static_cast<size_t>(last_row + 1) * columns_, items_.size());
 
     LOG_DEBUG(
-        "requestVisibleThumbnails: client_rect=({},{},{},{}), items={}, columns={}, "
+        "requestVisibleThumbnails: rows=[{},{}], indices=[{},{}), items={}, columns={}, "
         "scroll_pos={}",
-        client_rect.left, client_rect.top, client_rect.right, client_rect.bottom, items_.size(),
-        columns_, scroll_pos_);
+        first_row, last_row, first_idx, last_idx, items_.size(), columns_, scroll_pos_);
 
     size_t requested = 0;
-    for (size_t i = 0; i < items_.size(); ++i) {
-        RECT item_rect = getItemRect(i);
+    for (size_t i = first_idx; i < last_idx; ++i) {
+        const auto& item = items_[i];
 
-        // Check if visible
-        if (item_rect.bottom >= 0 && item_rect.top <= client_rect.bottom) {
-            const auto& item = items_[i];
-
-            // Check if we already have thumbnail (use sourceIdentifier for keying)
-            std::wstring key = item.sourceIdentifier();
-            if (item.is_image() && thumbnails_.find(key) == thumbnails_.end()) {
-                // Request using VirtualPath
-                if (item.is_in_archive() && item.virtual_path) {
-                    thumbnail_request_callback_(*item.virtual_path);
-                } else {
-                    thumbnail_request_callback_(archive::VirtualPath(item.path));
-                }
-                requested++;
+        // Check if we already have thumbnail (use sourceIdentifier for keying)
+        std::wstring key = item.sourceIdentifier();
+        if (item.is_image() && thumbnails_.find(key) == thumbnails_.end()) {
+            // Request using VirtualPath
+            if (item.is_in_archive() && item.virtual_path) {
+                thumbnail_request_callback_(*item.virtual_path);
+            } else {
+                thumbnail_request_callback_(archive::VirtualPath(item.path));
             }
+            requested++;
         }
     }
 
     LOG_DEBUG("requestVisibleThumbnails: requested {} thumbnails", requested);
+}
+
+void ThumbnailGrid::scheduleScrollThumbnailRequest() {
+    SetTimer(hwnd_, kScrollDebounceTimerId, kScrollDebounceMs, nullptr);
 }
 
 // --- D2D Resource Management ---

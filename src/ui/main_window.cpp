@@ -585,6 +585,11 @@ void MainWindow::createChildControls() {
     tree_->onFileDrop([this](const std::vector<std::filesystem::path>& files,
                              const std::filesystem::path& dest_path, DWORD effect) {
         if (file_op_manager_) {
+            if (effect == DROPEFFECT_MOVE) {
+                setCursorHintSelectPrevious(files);
+            } else {
+                setCursorHintRestore(files);
+            }
             auto result = file_op_manager_->handleDrop(files, dest_path, effect);
             if (result.succeeded() || result.partiallySucceeded()) {
                 // Refresh if files were moved/copied to current directory
@@ -658,6 +663,7 @@ void MainWindow::createChildControls() {
 
     file_list_->onDeleteRequested([this](const std::vector<std::filesystem::path>& files) {
         if (file_op_manager_) {
+            setCursorHintSelectPrevious(files);
             file_op_manager_->deleteFiles(files);
         }
     });
@@ -699,6 +705,7 @@ void MainWindow::createChildControls() {
 
     grid_->onDeleteRequested([this](const std::vector<std::filesystem::path>& files) {
         if (file_op_manager_) {
+            setCursorHintSelectPrevious(files);
             file_op_manager_->deleteFiles(files);
         }
     });
@@ -757,6 +764,7 @@ void MainWindow::createChildControls() {
             if (grid_) {
                 grid_->setItems(App::instance().state().files(), preserve_scroll);
             }
+            applyCursorHint();
             updateStatusBar();
             break;
         }
@@ -924,6 +932,106 @@ void MainWindow::drawSplitters(HDC hdc) {
     SelectObject(hdc, old_pen);
     DeleteObject(light_pen);
     DeleteObject(dark_pen);
+}
+
+void MainWindow::setCursorHintRestore(const std::vector<std::filesystem::path>& files) {
+    cursor_hint_.action = CursorHint::Action::RestoreByName;
+    cursor_hint_.target_names.clear();
+    cursor_hint_.target_names.reserve(files.size());
+    for (const auto& f : files) {
+        cursor_hint_.target_names.push_back(f.filename().wstring());
+    }
+}
+
+void MainWindow::setCursorHintSelectPrevious(const std::vector<std::filesystem::path>& files) {
+    cursor_hint_.action = CursorHint::Action::None;
+    cursor_hint_.target_names.clear();
+
+    if (files.empty()) {
+        return;
+    }
+
+    // Build a set of affected filenames for fast lookup
+    std::vector<std::wstring> affected_names;
+    affected_names.reserve(files.size());
+    for (const auto& f : files) {
+        affected_names.push_back(f.filename().wstring());
+    }
+
+    // Find the minimum index among affected files in the current file list
+    const auto& current_files = App::instance().state().files();
+    size_t min_index = SIZE_MAX;
+    for (size_t i = 0; i < current_files.size(); ++i) {
+        for (const auto& name : affected_names) {
+            if (current_files[i].name == name) {
+                min_index = (std::min)(min_index, i);
+                break;
+            }
+        }
+    }
+
+    if (min_index == 0 || min_index == SIZE_MAX) {
+        // First item or not found — leave cursor undefined
+        return;
+    }
+
+    cursor_hint_.action = CursorHint::Action::SelectByName;
+    cursor_hint_.target_names.push_back(current_files[min_index - 1].name);
+}
+
+void MainWindow::applyCursorHint() {
+    if (cursor_hint_.action == CursorHint::Action::None) {
+        return;
+    }
+
+    const auto& current_files = App::instance().state().files();
+    auto& state = App::instance().state();
+
+    if (cursor_hint_.action == CursorHint::Action::RestoreByName) {
+        // Find indices of files matching the stored names
+        std::vector<size_t> indices;
+        for (size_t i = 0; i < current_files.size(); ++i) {
+            for (const auto& name : cursor_hint_.target_names) {
+                if (current_files[i].name == name) {
+                    indices.push_back(i);
+                    break;
+                }
+            }
+        }
+
+        if (!indices.empty()) {
+            if (grid_) {
+                grid_->setSelection(indices);
+            }
+            if (file_list_) {
+                file_list_->setSelection(indices);
+            }
+            Selection sel;
+            sel.indices = indices;
+            state.setSelection(sel);
+        }
+    } else if (cursor_hint_.action == CursorHint::Action::SelectByName) {
+        // Find the single target by name
+        const auto& target = cursor_hint_.target_names.front();
+        for (size_t i = 0; i < current_files.size(); ++i) {
+            if (current_files[i].name == target) {
+                if (grid_) {
+                    grid_->selectSingle(i);
+                    grid_->ensureVisible(i);
+                }
+                if (file_list_) {
+                    file_list_->selectSingle(i);
+                    file_list_->ensureVisible(i);
+                }
+                state.selectSingle(i);
+                break;
+            }
+        }
+    }
+
+    // Clear the hint
+    cursor_hint_.action = CursorHint::Action::None;
+    cursor_hint_.target_names.clear();
 }
 
 void MainWindow::updateSortMenu() {

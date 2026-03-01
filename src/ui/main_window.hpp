@@ -5,8 +5,10 @@
 
 #include <Windows.h>
 
+#include <filesystem>
 #include <memory>
 #include <string>
+#include <vector>
 
 #include "core/config/settings.hpp"
 
@@ -109,6 +111,18 @@ private:
     std::unique_ptr<FileListView> file_list_;
     std::unique_ptr<ThumbnailGrid> grid_;
     std::unique_ptr<FileOperationManager> file_op_manager_;
+
+    // Cursor hint — transient post-operation selection target
+    struct CursorHint {
+        enum class Action { None, RestoreByName, SelectByName };
+        Action action = Action::None;
+        std::vector<std::wstring> target_names;
+    };
+    CursorHint cursor_hint_;
+
+    void setCursorHintRestore(const std::vector<std::filesystem::path>& files);
+    void setCursorHintSelectPrevious(const std::vector<std::filesystem::path>& files);
+    void applyCursorHint();
 
     // State change tracking
     bool directory_changed_ = false;

@@ -100,6 +100,8 @@ private:
     HTREEITEM addItemWithIcon(HTREEITEM parent, const std::wstring& text,
                               const std::filesystem::path& path, bool has_children, int icon);
     void expandItem(HTREEITEM item);
+    void collapseItem(HTREEITEM item);
+    void removeChildItems(HTREEITEM parent);
     void populateChildren(HTREEITEM parent, const std::filesystem::path& path);
     HTREEITEM findItem(HTREEITEM start, const std::filesystem::path& path);
     void addNetworkShares(const std::vector<std::string>& shares);

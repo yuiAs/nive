@@ -244,15 +244,7 @@ std::filesystem::path DirectoryTree::selectedPath() const {
 void DirectoryTree::refreshPath(const std::filesystem::path& path) {
     HTREEITEM item = findItem(TreeView_GetRoot(hwnd_), path);
     if (item) {
-        // Delete children and re-populate
-        HTREEITEM child = TreeView_GetChild(hwnd_, item);
-        while (child) {
-            HTREEITEM next = TreeView_GetNextSibling(hwnd_, child);
-            item_paths_.erase(child);
-            TreeView_DeleteItem(hwnd_, child);
-            child = next;
-        }
-
+        removeChildItems(item);
         populateChildren(item, path);
     }
 }
@@ -335,6 +327,8 @@ LRESULT DirectoryTree::handleNotify(NMHDR* nmhdr) {
         auto* nmtv = reinterpret_cast<NMTREEVIEWW*>(nmhdr);
         if (nmtv->action == TVE_EXPAND) {
             expandItem(nmtv->itemNew.hItem);
+        } else if (nmtv->action == TVE_COLLAPSE) {
+            collapseItem(nmtv->itemNew.hItem);
         }
         return 0;
     }
@@ -429,6 +423,31 @@ void DirectoryTree::expandItem(HTREEITEM item) {
     }
 
     populateChildren(item, it->second);
+}
+
+void DirectoryTree::collapseItem(HTREEITEM item) {
+    removeChildItems(item);
+
+    // Re-insert a dummy child so the [+] expand button remains visible
+    TVINSERTSTRUCTW tvis = {};
+    tvis.hParent = item;
+    tvis.hInsertAfter = TVI_FIRST;
+    tvis.item.mask = TVIF_TEXT;
+    tvis.item.pszText = const_cast<wchar_t*>(L"");
+    TreeView_InsertItem(hwnd_, &tvis);
+}
+
+void DirectoryTree::removeChildItems(HTREEITEM parent) {
+    HTREEITEM child = TreeView_GetChild(hwnd_, parent);
+    while (child) {
+        HTREEITEM next = TreeView_GetNextSibling(hwnd_, child);
+        // Recursively clean up descendants first
+        removeChildItems(child);
+        item_paths_.erase(child);
+        archive_items_.erase(child);
+        TreeView_DeleteItem(hwnd_, child);
+        child = next;
+    }
 }
 
 void DirectoryTree::populateChildren(HTREEITEM parent, const std::filesystem::path& path) {

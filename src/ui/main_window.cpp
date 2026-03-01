@@ -401,9 +401,20 @@ void MainWindow::onCommand(WORD id) {
         }
         break;
 
-    case kIdFileRefresh:
-        App::instance().refresh();
+    case kIdFileRefresh: {
+        HWND focused = GetFocus();
+        if (tree_ && focused == tree_->hwnd()) {
+            // Refresh only the directory tree (selected node)
+            auto selected = tree_->selectedPath();
+            if (!selected.empty()) {
+                tree_->refreshPath(selected);
+            }
+        } else {
+            // Refresh the right pane (file list / thumbnail grid)
+            App::instance().refresh();
+        }
         break;
+    }
 
     case kIdFileExit:
         PostMessageW(hwnd_, WM_CLOSE, 0, 0);

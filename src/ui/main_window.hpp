@@ -117,6 +117,7 @@ private:
         enum class Action { None, RestoreByName, SelectByName };
         Action action = Action::None;
         std::vector<std::wstring> target_names;
+        HWND source_focus = nullptr;  // Window that had focus before the operation
     };
     CursorHint cursor_hint_;
 

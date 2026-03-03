@@ -937,6 +937,7 @@ void MainWindow::drawSplitters(HDC hdc) {
 void MainWindow::setCursorHintRestore(const std::vector<std::filesystem::path>& files) {
     cursor_hint_.action = CursorHint::Action::RestoreByName;
     cursor_hint_.target_names.clear();
+    cursor_hint_.source_focus = GetFocus();
     cursor_hint_.target_names.reserve(files.size());
     for (const auto& f : files) {
         cursor_hint_.target_names.push_back(f.filename().wstring());
@@ -946,6 +947,7 @@ void MainWindow::setCursorHintRestore(const std::vector<std::filesystem::path>& 
 void MainWindow::setCursorHintSelectPrevious(const std::vector<std::filesystem::path>& files) {
     cursor_hint_.action = CursorHint::Action::None;
     cursor_hint_.target_names.clear();
+    cursor_hint_.source_focus = GetFocus();
 
     if (files.empty()) {
         return;
@@ -970,8 +972,27 @@ void MainWindow::setCursorHintSelectPrevious(const std::vector<std::filesystem::
         }
     }
 
-    if (min_index == 0 || min_index == SIZE_MAX) {
-        // First item or not found — leave cursor undefined
+    if (min_index == SIZE_MAX) {
+        return;
+    }
+
+    if (min_index == 0) {
+        // First item affected — select the first non-affected item instead
+        for (size_t i = 0; i < current_files.size(); ++i) {
+            bool is_affected = false;
+            for (const auto& name : affected_names) {
+                if (current_files[i].name == name) {
+                    is_affected = true;
+                    break;
+                }
+            }
+            if (!is_affected) {
+                cursor_hint_.action = CursorHint::Action::SelectByName;
+                cursor_hint_.target_names.push_back(current_files[i].name);
+                return;
+            }
+        }
+        // All items affected — nothing to select
         return;
     }
 
@@ -1029,9 +1050,17 @@ void MainWindow::applyCursorHint() {
         }
     }
 
+    // Restore keyboard focus to the window that initiated the operation.
+    // File operations (delete dialog, IFileOperation progress) may have
+    // moved Win32 focus away from the originating view.
+    if (cursor_hint_.source_focus && IsWindow(cursor_hint_.source_focus)) {
+        SetFocus(cursor_hint_.source_focus);
+    }
+
     // Clear the hint
     cursor_hint_.action = CursorHint::Action::None;
     cursor_hint_.target_names.clear();
+    cursor_hint_.source_focus = nullptr;
 }
 
 void MainWindow::updateSortMenu() {

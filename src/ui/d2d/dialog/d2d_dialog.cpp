@@ -359,10 +359,95 @@ LRESULT D2DDialog::handleMessage(UINT msg, WPARAM wParam, LPARAM lParam) {
     }
 
     case WM_CHAR: {
+        // Suppress WM_CHAR when we already handled text via GCS_RESULTSTR
+        if (suppress_wm_char_) {
+            suppress_wm_char_ = false;
+            return 0;
+        }
         KeyEvent event;
         event.character = static_cast<wchar_t>(wParam);
         event.modifiers = getCurrentModifiers();
         onChar(event);
+        return 0;
+    }
+
+    case WM_IME_SETCONTEXT: {
+        // Hide OS default composition window (we draw our own)
+        lParam &= ~ISC_SHOWUICOMPOSITIONWINDOW;
+        return DefWindowProcW(hwnd_, msg, wParam, lParam);
+    }
+
+    case WM_IME_STARTCOMPOSITION: {
+        ime_composing_ = true;
+        updateCompositionWindowPosition();
+        CompositionEvent event;
+        event.phase = CompositionPhase::Start;
+        dispatchCompositionEvent(event);
+        return 0;
+    }
+
+    case WM_IME_COMPOSITION: {
+        HIMC himc = ImmGetContext(hwnd_);
+        if (!himc) {
+            return DefWindowProcW(hwnd_, msg, wParam, lParam);
+        }
+
+        // Handle result string (committed text) first
+        if (lParam & GCS_RESULTSTR) {
+            LONG result_size = ImmGetCompositionStringW(himc, GCS_RESULTSTR, nullptr, 0);
+            if (result_size > 0) {
+                std::wstring result_str(result_size / sizeof(wchar_t), L'\0');
+                ImmGetCompositionStringW(himc, GCS_RESULTSTR, result_str.data(), result_size);
+
+                CompositionEvent event;
+                event.phase = CompositionPhase::Commit;
+                event.text = std::move(result_str);
+                dispatchCompositionEvent(event);
+                suppress_wm_char_ = true;
+            }
+        }
+
+        // Handle composition string (in-progress text)
+        if (lParam & GCS_COMPSTR) {
+            LONG comp_size = ImmGetCompositionStringW(himc, GCS_COMPSTR, nullptr, 0);
+            CompositionEvent event;
+            event.phase = CompositionPhase::Update;
+
+            if (comp_size > 0) {
+                event.text.resize(comp_size / sizeof(wchar_t));
+                ImmGetCompositionStringW(himc, GCS_COMPSTR, event.text.data(), comp_size);
+
+                // Get per-character attributes
+                LONG attr_size = ImmGetCompositionStringW(himc, GCS_COMPATTR, nullptr, 0);
+                if (attr_size > 0) {
+                    std::vector<BYTE> attrs(attr_size);
+                    ImmGetCompositionStringW(himc, GCS_COMPATTR, attrs.data(), attr_size);
+                    event.attributes.resize(attrs.size());
+                    for (size_t i = 0; i < attrs.size(); i++) {
+                        event.attributes[i] = static_cast<CompositionAttr>(
+                            std::min(attrs[i], static_cast<BYTE>(4)));
+                    }
+                }
+
+                // Get cursor position within composition
+                event.cursor_pos = static_cast<int>(
+                    ImmGetCompositionStringW(himc, GCS_CURSORPOS, nullptr, 0));
+            }
+
+            dispatchCompositionEvent(event);
+            updateCompositionWindowPosition();
+        }
+
+        ImmReleaseContext(hwnd_, himc);
+        return 0;
+    }
+
+    case WM_IME_ENDCOMPOSITION: {
+        ime_composing_ = false;
+        suppress_wm_char_ = false;
+        CompositionEvent event;
+        event.phase = CompositionPhase::End;
+        dispatchCompositionEvent(event);
         return 0;
     }
 
@@ -597,6 +682,50 @@ Modifiers D2DDialog::getCurrentModifiers() const {
         mods = mods | Modifiers::Alt;
     }
     return mods;
+}
+
+void D2DDialog::updateCompositionWindowPosition() {
+    auto* focused = findFocusedInputComponent();
+    if (!focused) {
+        return;
+    }
+
+    Rect comp_rect = focused->compositionRect();
+    if (comp_rect.width == 0.0f && comp_rect.height == 0.0f) {
+        return;
+    }
+
+    HIMC himc = ImmGetContext(hwnd_);
+    if (!himc) {
+        return;
+    }
+
+    // Convert DIP coordinates to device pixels
+    float dpi_scale = device_resources_.dpiX() / 96.0f;
+
+    COMPOSITIONFORM cf = {};
+    cf.dwStyle = CFS_POINT;
+    cf.ptCurrentPos.x = static_cast<LONG>(comp_rect.x * dpi_scale);
+    cf.ptCurrentPos.y = static_cast<LONG>(comp_rect.y * dpi_scale);
+    ImmSetCompositionWindow(himc, &cf);
+
+    // Also position the candidate window near the caret
+    CANDIDATEFORM cand = {};
+    cand.dwIndex = 0;
+    cand.dwStyle = CFS_CANDIDATEPOS;
+    cand.ptCurrentPos.x = static_cast<LONG>(comp_rect.x * dpi_scale);
+    cand.ptCurrentPos.y = static_cast<LONG>(comp_rect.bottom() * dpi_scale);
+    ImmSetCandidateWindow(himc, &cand);
+
+    ImmReleaseContext(hwnd_, himc);
+}
+
+void D2DDialog::dispatchCompositionEvent(const CompositionEvent& event) {
+    onComposition(event);
+}
+
+D2DUIComponent* D2DDialog::findFocusedInputComponent() const {
+    return findFocusedLeaf();
 }
 
 }  // namespace nive::ui::d2d

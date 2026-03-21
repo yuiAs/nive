@@ -58,7 +58,12 @@ public:
     virtual bool onKeyDown(const KeyEvent& event) { return false; }
     virtual bool onKeyUp(const KeyEvent& event) { return false; }
     virtual bool onChar(const KeyEvent& event) { return false; }
+    virtual bool onComposition(const CompositionEvent& event) { return false; }
     virtual void onFocusChanged(const FocusEvent& event) {}
+
+    /// @brief Get the caret rect for IME candidate window positioning (in DIP, relative to parent)
+    /// @return Caret rect, or empty rect if component doesn't accept IME input
+    [[nodiscard]] virtual Rect compositionRect() const { return {}; }
 
     // Properties
 
@@ -178,6 +183,7 @@ public:
     bool onKeyDown(const KeyEvent& event) override;
     bool onKeyUp(const KeyEvent& event) override;
     bool onChar(const KeyEvent& event) override;
+    bool onComposition(const CompositionEvent& event) override;
 
     /// @brief Request focus for a child component
     void requestFocus(D2DUIComponent* child);

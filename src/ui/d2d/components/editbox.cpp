@@ -220,16 +220,18 @@ void D2DEditBox::render(ID2D1RenderTarget* rt) {
     // Draw text or placeholder
     if (!text_.empty() && text_layout_ && text_brush_) {
         rt->DrawTextLayout(D2D1::Point2F(text_x, text_y), text_layout_.Get(), text_brush_.Get());
+        // Draw IME composition underlines
+        renderCompositionUnderlines(rt, text_x, content);
     } else if (text_.empty() && placeholder_layout_ && placeholder_brush_) {
         rt->DrawTextLayout(D2D1::Point2F(content.x, text_y), placeholder_layout_.Get(),
                            placeholder_brush_.Get());
     }
 
-    // Draw caret (with blink)
+    // Draw caret (with blink, always visible during composition)
     if (focused_ && caret_brush_) {
         UINT blink_time = GetCaretBlinkTime();
         bool caret_visible = true;
-        if (blink_time != INFINITE && blink_time > 0) {
+        if (!composing_ && blink_time != INFINITE && blink_time > 0) {
             DWORD elapsed = GetTickCount() - caret_blink_reset_time_;
             // Caret is visible for the first half of the blink cycle
             caret_visible = (elapsed % (blink_time * 2)) < blink_time;
@@ -968,9 +970,178 @@ HCURSOR D2DEditBox::cursor() const {
     return ibeam;
 }
 
+bool D2DEditBox::onComposition(const CompositionEvent& event) {
+    if (!enabled_ || read_only_) {
+        return false;
+    }
+
+    switch (event.phase) {
+    case CompositionPhase::Start:
+        // Remove any existing selection before composition starts
+        if (hasSelection()) {
+            pushUndoState();
+            size_t start = std::min(selection_start_, selection_end_);
+            size_t end = std::max(selection_start_, selection_end_);
+            text_.erase(start, end - start);
+            caret_pos_ = start;
+            selection_start_ = selection_end_ = caret_pos_;
+        }
+        composing_ = true;
+        composition_insert_pos_ = caret_pos_;
+        composition_string_.clear();
+        composition_attrs_.clear();
+        composition_cursor_ = 0;
+        invalidate();
+        return true;
+
+    case CompositionPhase::Update:
+        // Remove previous composition text, insert new one
+        removeCompositionFromText();
+        composition_string_ = event.text;
+        composition_attrs_ = event.attributes;
+        composition_cursor_ = event.cursor_pos;
+        applyCompositionToText();
+        ensureCaretVisible();
+        invalidate();
+        return true;
+
+    case CompositionPhase::Commit: {
+        // Remove composition text, then insert final result via normal path
+        removeCompositionFromText();
+        composing_ = false;
+        composition_string_.clear();
+        composition_attrs_.clear();
+
+        if (!event.text.empty()) {
+            // Push undo state for the committed text
+            pushUndoState();
+            text_.insert(composition_insert_pos_, event.text);
+            caret_pos_ = composition_insert_pos_ + event.text.length();
+            selection_start_ = selection_end_ = caret_pos_;
+            text_layout_.Reset();
+            ensureCaretVisible();
+            invalidate();
+            if (on_change_) {
+                on_change_(text_);
+            }
+        }
+        return true;
+    }
+
+    case CompositionPhase::End:
+        // Clean up any remaining composition state
+        if (composing_) {
+            removeCompositionFromText();
+            composing_ = false;
+            composition_string_.clear();
+            composition_attrs_.clear();
+            invalidate();
+        }
+        return true;
+    }
+
+    return false;
+}
+
+void D2DEditBox::applyCompositionToText() {
+    if (composition_string_.empty()) {
+        return;
+    }
+    text_.insert(composition_insert_pos_, composition_string_);
+    caret_pos_ = composition_insert_pos_ + static_cast<size_t>(composition_cursor_);
+    selection_start_ = selection_end_ = caret_pos_;
+    text_layout_.Reset();
+}
+
+void D2DEditBox::removeCompositionFromText() {
+    if (composition_string_.empty()) {
+        return;
+    }
+    text_.erase(composition_insert_pos_, composition_string_.length());
+    caret_pos_ = composition_insert_pos_;
+    selection_start_ = selection_end_ = caret_pos_;
+    text_layout_.Reset();
+}
+
+void D2DEditBox::renderCompositionUnderlines(ID2D1RenderTarget* rt, float text_x,
+                                              const Rect& content) {
+    if (!composing_ || composition_string_.empty() || !text_layout_ || !text_brush_) {
+        return;
+    }
+
+    size_t comp_start = composition_insert_pos_;
+    size_t comp_len = composition_string_.length();
+
+    // Determine underline segments by attribute
+    size_t seg_start = 0;
+    while (seg_start < comp_len) {
+        CompositionAttr attr = CompositionAttr::Input;
+        if (seg_start < composition_attrs_.size()) {
+            attr = composition_attrs_[seg_start];
+        }
+
+        // Find end of segment with same attribute
+        size_t seg_end = seg_start + 1;
+        while (seg_end < comp_len) {
+            CompositionAttr next_attr = CompositionAttr::Input;
+            if (seg_end < composition_attrs_.size()) {
+                next_attr = composition_attrs_[seg_end];
+            }
+            if (next_attr != attr) {
+                break;
+            }
+            seg_end++;
+        }
+
+        // Get X coordinates for this segment
+        float start_x, end_x, y;
+        DWRITE_HIT_TEST_METRICS metrics;
+        text_layout_->HitTestTextPosition(
+            static_cast<UINT32>(comp_start + seg_start), FALSE, &start_x, &y, &metrics);
+        text_layout_->HitTestTextPosition(
+            static_cast<UINT32>(comp_start + seg_end), FALSE, &end_x, &y, &metrics);
+
+        float line_y = content.bottom() - 1.0f;
+        float line_thickness = 1.0f;
+
+        if (attr == CompositionAttr::TargetConverted ||
+            attr == CompositionAttr::TargetNotConverted) {
+            line_thickness = 2.0f;
+        }
+
+        D2D1_RECT_F underline_rect = D2D1::RectF(
+            text_x + start_x, line_y - line_thickness + 1.0f,
+            text_x + end_x, line_y + 1.0f);
+        rt->FillRectangle(underline_rect, text_brush_.Get());
+
+        seg_start = seg_end;
+    }
+}
+
+Rect D2DEditBox::compositionRect() const {
+    if (!text_layout_) {
+        return {};
+    }
+
+    Rect content = getContentRect();
+    float caret_x = content.x - scroll_offset_ + getCaretX();
+    float caret_y = content.y;
+
+    // Return rect in parent coordinates (component bounds are already in parent coords)
+    return Rect{caret_x, caret_y, Style::caretWidth(), content.height};
+}
+
 void D2DEditBox::onFocusChanged(const FocusEvent& event) {
     if (event.gained) {
         resetCaretBlink();
+    } else {
+        // Cancel any active composition on focus loss
+        if (composing_) {
+            removeCompositionFromText();
+            composing_ = false;
+            composition_string_.clear();
+            composition_attrs_.clear();
+        }
     }
     invalidate();
 }

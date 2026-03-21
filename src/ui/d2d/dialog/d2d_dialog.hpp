@@ -4,6 +4,8 @@
 #pragma once
 
 #include <Windows.h>
+#include <imm.h>
+#pragma comment(lib, "imm32.lib")
 
 #include <memory>
 #include <string>
@@ -121,6 +123,11 @@ private:
     [[nodiscard]] KeyEvent createKeyEvent(WPARAM wParam, LPARAM lParam) const;
     [[nodiscard]] Modifiers getCurrentModifiers() const;
 
+    // IME helpers
+    void updateCompositionWindowPosition();
+    void dispatchCompositionEvent(const CompositionEvent& event);
+    [[nodiscard]] D2DUIComponent* findFocusedInputComponent() const;
+
     HWND hwnd_ = nullptr;
     HWND parent_ = nullptr;
     DeviceResources device_resources_;
@@ -136,6 +143,10 @@ private:
     // Multi-click detection (for triple-click)
     DWORD last_dblclk_time_ = 0;
     POINT last_dblclk_pos_ = {};
+
+    // IME state
+    bool ime_composing_ = false;       // True during active composition
+    bool suppress_wm_char_ = false;    // Suppress WM_CHAR after GCS_RESULTSTR
 
     // Window class registration
     static ATOM window_class_;

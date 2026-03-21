@@ -317,4 +317,12 @@ bool D2DContainerComponent::onChar(const KeyEvent& event) {
     return false;
 }
 
+bool D2DContainerComponent::onComposition(const CompositionEvent& event) {
+    // Forward to focused child
+    if (focused_child_ && focused_child_->isEnabled()) {
+        return focused_child_->onComposition(event);
+    }
+    return false;
+}
+
 }  // namespace nive::ui::d2d

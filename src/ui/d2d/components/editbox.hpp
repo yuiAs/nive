@@ -76,6 +76,8 @@ public:
     bool onKeyDown(const KeyEvent& event) override;
     bool onChar(const KeyEvent& event) override;
     void onFocusChanged(const FocusEvent& event) override;
+    bool onComposition(const CompositionEvent& event) override;
+    [[nodiscard]] Rect compositionRect() const override;
     [[nodiscard]] HCURSOR cursor() const override;
 
     /// @brief Create resources (call before first render)
@@ -144,6 +146,17 @@ private:
     std::vector<UndoState> undo_stack_;
     size_t undo_index_ = 0;  // Points to the next available undo slot
     static constexpr size_t kMaxUndoHistory = 100;
+
+    // IME composition state
+    bool composing_ = false;
+    std::wstring composition_string_;
+    std::vector<CompositionAttr> composition_attrs_;
+    int composition_cursor_ = 0;
+    size_t composition_insert_pos_ = 0;  // Position in text_ where composition is inserted
+
+    void applyCompositionToText();
+    void removeCompositionFromText();
+    void renderCompositionUnderlines(ID2D1RenderTarget* rt, float text_x, const Rect& content);
 
     ChangeCallback on_change_;
 

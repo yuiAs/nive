@@ -4,6 +4,8 @@
 #pragma once
 
 #include <cstdint>
+#include <string>
+#include <vector>
 
 #include "ui/d2d/core/types.hpp"
 
@@ -74,6 +76,34 @@ struct StateChangeEvent : Event {
 /// @brief Text change event
 struct TextChangeEvent : Event {
     // Text is retrieved from the component directly
+};
+
+/// @brief IME composition phase
+enum class CompositionPhase : uint8_t {
+    Start,   // Composition started (WM_IME_STARTCOMPOSITION)
+    Update,  // Composition string updated (WM_IME_COMPOSITION + GCS_COMPSTR)
+    Commit,  // Result string committed (WM_IME_COMPOSITION + GCS_RESULTSTR)
+    End,     // Composition ended (WM_IME_ENDCOMPOSITION)
+};
+
+/// @brief IME composition attribute per character
+///
+/// Maps to Win32 ATTR_* values from ImmGetCompositionString(GCS_COMPATTR).
+/// Used to determine underline style when rendering composition text.
+enum class CompositionAttr : uint8_t {
+    Input = 0,              // ATTR_INPUT: being typed (thin underline)
+    TargetConverted = 1,    // ATTR_TARGET_CONVERTED: actively selected clause (thick underline)
+    Converted = 2,          // ATTR_CONVERTED: converted but not selected (dotted underline)
+    TargetNotConverted = 3, // ATTR_TARGET_NOTCONVERTED
+    InputError = 4,         // ATTR_INPUT_ERROR
+};
+
+/// @brief IME composition event
+struct CompositionEvent : Event {
+    CompositionPhase phase = CompositionPhase::Start;
+    std::wstring text;                          // Composition or result string
+    std::vector<CompositionAttr> attributes;    // Per-character attributes (for Update phase)
+    int cursor_pos = 0;                         // Cursor position within composition string
 };
 
 }  // namespace nive::ui::d2d

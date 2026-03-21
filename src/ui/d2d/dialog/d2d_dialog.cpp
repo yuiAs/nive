@@ -14,6 +14,10 @@
 
 namespace nive::ui::d2d {
 
+namespace {
+constexpr UINT_PTR kCaretBlinkTimerId = 1;
+}  // namespace
+
 ATOM D2DDialog::window_class_ = 0;
 
 bool D2DDialog::registerWindowClass() {
@@ -23,7 +27,7 @@ bool D2DDialog::registerWindowClass() {
 
     WNDCLASSEXW wc = {};
     wc.cbSize = sizeof(WNDCLASSEXW);
-    wc.style = CS_HREDRAW | CS_VREDRAW;
+    wc.style = CS_HREDRAW | CS_VREDRAW | CS_DBLCLKS;
     wc.lpfnWndProc = windowProc;
     wc.hInstance = GetModuleHandleW(nullptr);
     wc.hCursor = LoadCursorW(nullptr, IDC_ARROW);
@@ -148,6 +152,12 @@ bool D2DDialog::createWindow(HWND parent) {
     // Call onCreate for subclass initialization
     onCreate();
 
+    // Start caret blink timer
+    UINT blink_time = GetCaretBlinkTime();
+    if (blink_time != INFINITE && blink_time > 0) {
+        SetTimer(hwnd_, kCaretBlinkTimerId, blink_time, nullptr);
+    }
+
     ShowWindow(hwnd_, SW_SHOW);
     UpdateWindow(hwnd_);
 
@@ -165,6 +175,7 @@ bool D2DDialog::createWindow(HWND parent) {
 
 void D2DDialog::destroyWindow() {
     if (hwnd_) {
+        KillTimer(hwnd_, kCaretBlinkTimerId);
         device_resources_.discardResources();
         DestroyWindow(hwnd_);
         hwnd_ = nullptr;
@@ -261,7 +272,21 @@ LRESULT D2DDialog::handleMessage(UINT msg, WPARAM wParam, LPARAM lParam) {
     case WM_LBUTTONDOWN: {
         SetCapture(hwnd_);
         auto event = createMouseEvent(lParam, wParam, MouseButton::Left);
-        event.clickCount = 1;
+
+        // Detect triple-click: single click shortly after a double-click at a nearby position
+        DWORD now = GetTickCount();
+        POINT pt = {GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam)};
+        DWORD dblclk_time = GetDoubleClickTime();
+        int cx = GetSystemMetrics(SM_CXDOUBLECLK) / 2;
+        int cy = GetSystemMetrics(SM_CYDOUBLECLK) / 2;
+        if (last_dblclk_time_ != 0 && (now - last_dblclk_time_) <= dblclk_time &&
+            std::abs(pt.x - last_dblclk_pos_.x) <= cx &&
+            std::abs(pt.y - last_dblclk_pos_.y) <= cy) {
+            event.clickCount = 3;
+            last_dblclk_time_ = 0;
+        } else {
+            event.clickCount = 1;
+        }
         onMouseDown(event);
         return 0;
     }
@@ -274,8 +299,11 @@ LRESULT D2DDialog::handleMessage(UINT msg, WPARAM wParam, LPARAM lParam) {
     }
 
     case WM_LBUTTONDBLCLK: {
+        SetCapture(hwnd_);
         auto event = createMouseEvent(lParam, wParam, MouseButton::Left);
         event.clickCount = 2;
+        last_dblclk_time_ = GetTickCount();
+        last_dblclk_pos_ = {GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam)};
         onMouseDown(event);
         return 0;
     }
@@ -335,6 +363,33 @@ LRESULT D2DDialog::handleMessage(UINT msg, WPARAM wParam, LPARAM lParam) {
         event.character = static_cast<wchar_t>(wParam);
         event.modifiers = getCurrentModifiers();
         onChar(event);
+        return 0;
+    }
+
+    case WM_SETCURSOR: {
+        if (LOWORD(lParam) == HTCLIENT) {
+            // Find the leaf component under the cursor
+            POINT pt;
+            GetCursorPos(&pt);
+            ScreenToClient(hwnd_, &pt);
+            float dpi_scale = device_resources_.dpiX() / 96.0f;
+            Point dip_pt{pt.x / dpi_scale, pt.y / dpi_scale};
+            if (auto* comp = findComponentAt(dip_pt)) {
+                HCURSOR cur = comp->cursor();
+                if (cur) {
+                    SetCursor(cur);
+                    return TRUE;
+                }
+            }
+        }
+        return DefWindowProcW(hwnd_, msg, wParam, lParam);
+    }
+
+    case WM_TIMER: {
+        if (wParam == kCaretBlinkTimerId) {
+            // Repaint for caret blink animation
+            InvalidateRect(hwnd_, nullptr, FALSE);
+        }
         return 0;
     }
 

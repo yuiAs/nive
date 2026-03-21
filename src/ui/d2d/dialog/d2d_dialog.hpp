@@ -133,6 +133,10 @@ private:
     bool running_ = false;
     D2DButton* default_button_ = nullptr;
 
+    // Multi-click detection (for triple-click)
+    DWORD last_dblclk_time_ = 0;
+    POINT last_dblclk_pos_ = {};
+
     // Window class registration
     static ATOM window_class_;
     static bool registerWindowClass();

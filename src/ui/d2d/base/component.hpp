@@ -100,6 +100,10 @@ public:
     /// @return true if point is within bounds
     [[nodiscard]] virtual bool hitTest(const Point& point) const;
 
+    /// @brief Get the cursor to display when hovering over this component
+    /// @return Win32 cursor handle, or nullptr for default arrow cursor
+    [[nodiscard]] virtual HCURSOR cursor() const { return nullptr; }
+
     /// @brief Invalidate the component (request repaint)
     void invalidate();
 

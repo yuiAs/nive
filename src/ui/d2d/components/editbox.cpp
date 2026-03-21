@@ -225,15 +225,29 @@ void D2DEditBox::render(ID2D1RenderTarget* rt) {
                            placeholder_brush_.Get());
     }
 
-    // Draw caret
+    // Draw caret (with blink)
     if (focused_ && caret_brush_) {
-        float caret_x = text_x + getCaretX();
-        D2D1_RECT_F caret_rect = D2D1::RectF(
-            caret_x, content.y + 2.0f, caret_x + Style::caretWidth(), content.bottom() - 2.0f);
-        rt->FillRectangle(caret_rect, caret_brush_.Get());
+        UINT blink_time = GetCaretBlinkTime();
+        bool caret_visible = true;
+        if (blink_time != INFINITE && blink_time > 0) {
+            DWORD elapsed = GetTickCount() - caret_blink_reset_time_;
+            // Caret is visible for the first half of the blink cycle
+            caret_visible = (elapsed % (blink_time * 2)) < blink_time;
+        }
+        if (caret_visible) {
+            float caret_x = text_x + getCaretX();
+            D2D1_RECT_F caret_rect =
+                D2D1::RectF(caret_x, content.y + 2.0f, caret_x + Style::caretWidth(),
+                            content.bottom() - 2.0f);
+            rt->FillRectangle(caret_rect, caret_brush_.Get());
+        }
     }
 
     rt->PopAxisAlignedClip();
+}
+
+void D2DEditBox::resetCaretBlink() {
+    caret_blink_reset_time_ = GetTickCount();
 }
 
 float D2DEditBox::getCaretX() const {
@@ -278,6 +292,67 @@ void D2DEditBox::ensureCaretVisible() {
     else if (caret_x > scroll_offset_ + content.width) {
         scroll_offset_ = caret_x - content.width;
     }
+
+    resetCaretBlink();
+}
+
+void D2DEditBox::pushUndoState() {
+    // Truncate any redo history beyond current position
+    if (undo_index_ < undo_stack_.size()) {
+        undo_stack_.resize(undo_index_);
+    }
+    undo_stack_.push_back({text_, caret_pos_, selection_start_, selection_end_});
+    if (undo_stack_.size() > kMaxUndoHistory) {
+        undo_stack_.erase(undo_stack_.begin());
+    }
+    undo_index_ = undo_stack_.size();
+}
+
+void D2DEditBox::undo() {
+    if (undo_index_ == 0) {
+        return;
+    }
+
+    // Save current state for redo if we're at the top
+    if (undo_index_ == undo_stack_.size()) {
+        undo_stack_.push_back({text_, caret_pos_, selection_start_, selection_end_});
+    }
+
+    undo_index_--;
+    const auto& state = undo_stack_[undo_index_];
+    text_ = state.text;
+    caret_pos_ = state.caret_pos;
+    selection_start_ = state.selection_start;
+    selection_end_ = state.selection_end;
+
+    text_layout_.Reset();
+    ensureCaretVisible();
+    invalidate();
+
+    if (on_change_) {
+        on_change_(text_);
+    }
+}
+
+void D2DEditBox::redo() {
+    if (undo_index_ + 1 >= undo_stack_.size()) {
+        return;
+    }
+
+    undo_index_++;
+    const auto& state = undo_stack_[undo_index_];
+    text_ = state.text;
+    caret_pos_ = state.caret_pos;
+    selection_start_ = state.selection_start;
+    selection_end_ = state.selection_end;
+
+    text_layout_.Reset();
+    ensureCaretVisible();
+    invalidate();
+
+    if (on_change_) {
+        on_change_(text_);
+    }
 }
 
 void D2DEditBox::insertText(const std::wstring& text) {
@@ -285,9 +360,15 @@ void D2DEditBox::insertText(const std::wstring& text) {
         return;
     }
 
-    // Delete selection first
+    pushUndoState();
+
+    // Delete selection first (no separate undo state - part of insert)
     if (hasSelection()) {
-        deleteSelection();
+        size_t start = std::min(selection_start_, selection_end_);
+        size_t end = std::max(selection_start_, selection_end_);
+        text_.erase(start, end - start);
+        caret_pos_ = start;
+        selection_start_ = selection_end_ = caret_pos_;
     }
 
     // Check max length
@@ -320,6 +401,7 @@ void D2DEditBox::deleteSelection() {
         return;
     }
 
+    pushUndoState();
     size_t start = std::min(selection_start_, selection_end_);
     size_t end = std::max(selection_start_, selection_end_);
 
@@ -349,6 +431,7 @@ void D2DEditBox::deleteCharacter(bool forward) {
     if (forward) {
         // Delete key
         if (caret_pos_ < text_.length()) {
+            pushUndoState();
             text_.erase(caret_pos_, 1);
             text_layout_.Reset();
             invalidate();
@@ -359,8 +442,48 @@ void D2DEditBox::deleteCharacter(bool forward) {
     } else {
         // Backspace
         if (caret_pos_ > 0) {
+            pushUndoState();
             caret_pos_--;
             text_.erase(caret_pos_, 1);
+            selection_start_ = selection_end_ = caret_pos_;
+            text_layout_.Reset();
+            ensureCaretVisible();
+            invalidate();
+            if (on_change_) {
+                on_change_(text_);
+            }
+        }
+    }
+}
+
+void D2DEditBox::deleteWord(bool forward) {
+    if (read_only_) {
+        return;
+    }
+
+    if (hasSelection()) {
+        deleteSelection();
+        return;
+    }
+
+    if (forward) {
+        size_t word_end = findWordEnd(caret_pos_);
+        if (word_end > caret_pos_) {
+            pushUndoState();
+            text_.erase(caret_pos_, word_end - caret_pos_);
+            selection_start_ = selection_end_ = caret_pos_;
+            text_layout_.Reset();
+            invalidate();
+            if (on_change_) {
+                on_change_(text_);
+            }
+        }
+    } else {
+        size_t word_start = findWordStart(caret_pos_);
+        if (word_start < caret_pos_) {
+            pushUndoState();
+            text_.erase(word_start, caret_pos_ - word_start);
+            caret_pos_ = word_start;
             selection_start_ = selection_end_ = caret_pos_;
             text_layout_.Reset();
             ensureCaretVisible();
@@ -394,33 +517,46 @@ void D2DEditBox::moveCaret(int delta, bool extend_selection) {
     invalidate();
 }
 
+size_t D2DEditBox::findWordStart(size_t pos) const {
+    if (pos == 0 || text_.empty()) {
+        return 0;
+    }
+    size_t p = pos;
+    if (p > 0) {
+        p--;
+    }
+    // Skip whitespace backwards
+    while (p > 0 && iswspace(text_[p])) {
+        p--;
+    }
+    // Skip word characters backwards
+    while (p > 0 && !iswspace(text_[p - 1])) {
+        p--;
+    }
+    return p;
+}
+
+size_t D2DEditBox::findWordEnd(size_t pos) const {
+    if (pos >= text_.length()) {
+        return text_.length();
+    }
+    size_t p = pos;
+    // Skip whitespace forwards
+    while (p < text_.length() && iswspace(text_[p])) {
+        p++;
+    }
+    // Skip word characters forwards
+    while (p < text_.length() && !iswspace(text_[p])) {
+        p++;
+    }
+    return p;
+}
+
 void D2DEditBox::moveCaretToWord(bool forward, bool extend_selection) {
     if (forward) {
-        // Move to end of current/next word
-        size_t pos = caret_pos_;
-        // Skip whitespace
-        while (pos < text_.length() && iswspace(text_[pos])) {
-            pos++;
-        }
-        // Skip word characters
-        while (pos < text_.length() && !iswspace(text_[pos])) {
-            pos++;
-        }
-        caret_pos_ = pos;
+        caret_pos_ = findWordEnd(caret_pos_);
     } else {
-        // Move to start of current/previous word
-        size_t pos = caret_pos_;
-        if (pos > 0)
-            pos--;
-        // Skip whitespace
-        while (pos > 0 && iswspace(text_[pos])) {
-            pos--;
-        }
-        // Skip word characters
-        while (pos > 0 && !iswspace(text_[pos - 1])) {
-            pos--;
-        }
-        caret_pos_ = pos;
+        caret_pos_ = findWordStart(caret_pos_);
     }
 
     if (extend_selection) {
@@ -514,7 +650,20 @@ void D2DEditBox::pasteFromClipboard() {
 }
 
 bool D2DEditBox::onMouseDown(const MouseEvent& event) {
-    if (!enabled_ || event.button != MouseButton::Left) {
+    if (!enabled_) {
+        return false;
+    }
+
+    // Right-click: show context menu
+    if (event.button == MouseButton::Right) {
+        if (parent_) {
+            parent_->requestFocus(this);
+        }
+        showContextMenu(event.screenPosition);
+        return true;
+    }
+
+    if (event.button != MouseButton::Left) {
         return false;
     }
 
@@ -524,6 +673,38 @@ bool D2DEditBox::onMouseDown(const MouseEvent& event) {
     }
 
     size_t pos = hitTestPosition(event.position.x);
+
+    if (event.clickCount == 3) {
+        // Triple-click: select all
+        selectAll();
+        drag_mode_ = DragMode::Character;
+        dragging_ = false;
+        return true;
+    }
+
+    if (event.clickCount == 2) {
+        // Double-click: select word
+        size_t word_start = findWordStart(pos);
+        size_t word_end = findWordEnd(pos);
+        // For double-click on whitespace, select at least the clicked position
+        if (word_start == word_end) {
+            word_start = pos;
+            word_end = pos;
+        }
+        selection_start_ = word_start;
+        selection_end_ = word_end;
+        caret_pos_ = word_end;
+        word_anchor_start_ = word_start;
+        word_anchor_end_ = word_end;
+        drag_mode_ = DragMode::Word;
+        dragging_ = true;
+        ensureCaretVisible();
+        invalidate();
+        return true;
+    }
+
+    // Single click
+    drag_mode_ = DragMode::Character;
 
     if (hasModifier(event.modifiers, Modifiers::Shift)) {
         // Extend selection
@@ -547,8 +728,27 @@ bool D2DEditBox::onMouseMove(const MouseEvent& event) {
     }
 
     size_t pos = hitTestPosition(event.position.x);
-    selection_end_ = pos;
-    caret_pos_ = pos;
+
+    if (drag_mode_ == DragMode::Word) {
+        // Snap to word boundaries, keeping the anchor word as minimum selection
+        size_t drag_word_start = findWordStart(pos);
+        size_t drag_word_end = findWordEnd(pos);
+        if (pos < word_anchor_start_) {
+            // Dragging left of anchor
+            selection_start_ = word_anchor_end_;
+            selection_end_ = drag_word_start;
+            caret_pos_ = drag_word_start;
+        } else {
+            // Dragging right of anchor (or within anchor)
+            selection_start_ = word_anchor_start_;
+            selection_end_ = drag_word_end;
+            caret_pos_ = drag_word_end;
+        }
+    } else {
+        selection_end_ = pos;
+        caret_pos_ = pos;
+    }
+
     ensureCaretVisible();
     invalidate();
     return true;
@@ -596,11 +796,19 @@ bool D2DEditBox::onKeyDown(const KeyEvent& event) {
         return true;
 
     case VK_BACK:
-        deleteCharacter(false);
+        if (ctrl) {
+            deleteWord(false);
+        } else {
+            deleteCharacter(false);
+        }
         return true;
 
     case VK_DELETE:
-        deleteCharacter(true);
+        if (ctrl) {
+            deleteWord(true);
+        } else {
+            deleteCharacter(true);
+        }
         return true;
 
     case 'A':
@@ -627,6 +835,20 @@ bool D2DEditBox::onKeyDown(const KeyEvent& event) {
     case 'V':
         if (ctrl) {
             pasteFromClipboard();
+            return true;
+        }
+        break;
+
+    case 'Z':
+        if (ctrl) {
+            undo();
+            return true;
+        }
+        break;
+
+    case 'Y':
+        if (ctrl) {
+            redo();
             return true;
         }
         break;
@@ -699,10 +921,56 @@ bool D2DEditBox::isValidInputChar(wchar_t ch) const {
     return false;
 }
 
+void D2DEditBox::showContextMenu(const Point& screen_pos) {
+    HMENU menu = CreatePopupMenu();
+    if (!menu) {
+        return;
+    }
+
+    enum { kCmdCut = 1, kCmdCopy, kCmdPaste, kCmdSelectAll };
+
+    bool has_sel = hasSelection();
+    bool has_text = !text_.empty();
+    bool can_paste = IsClipboardFormatAvailable(CF_UNICODETEXT);
+
+    AppendMenuW(menu, MF_STRING | ((!read_only_ && has_sel) ? 0 : MF_GRAYED), kCmdCut, L"Cut");
+    AppendMenuW(menu, MF_STRING | (has_sel ? 0 : MF_GRAYED), kCmdCopy, L"Copy");
+    AppendMenuW(menu, MF_STRING | ((!read_only_ && can_paste) ? 0 : MF_GRAYED), kCmdPaste,
+                L"Paste");
+    AppendMenuW(menu, MF_SEPARATOR, 0, nullptr);
+    AppendMenuW(menu, MF_STRING | (has_text ? 0 : MF_GRAYED), kCmdSelectAll, L"Select All");
+
+    // Find the HWND for TrackPopupMenu
+    POINT pt = {static_cast<LONG>(screen_pos.x), static_cast<LONG>(screen_pos.y)};
+    HWND hwnd = WindowFromPoint(pt);
+
+    int cmd = TrackPopupMenu(menu, TPM_RETURNCMD | TPM_NONOTIFY, pt.x, pt.y, 0, hwnd, nullptr);
+    DestroyMenu(menu);
+
+    switch (cmd) {
+    case kCmdCut:
+        cutToClipboard();
+        break;
+    case kCmdCopy:
+        copyToClipboard();
+        break;
+    case kCmdPaste:
+        pasteFromClipboard();
+        break;
+    case kCmdSelectAll:
+        selectAll();
+        break;
+    }
+}
+
+HCURSOR D2DEditBox::cursor() const {
+    static HCURSOR ibeam = LoadCursorW(nullptr, IDC_IBEAM);
+    return ibeam;
+}
+
 void D2DEditBox::onFocusChanged(const FocusEvent& event) {
-    if (!event.gained) {
-        // Clear selection on focus loss (optional behavior)
-        // clearSelection();
+    if (event.gained) {
+        resetCaretBlink();
     }
     invalidate();
 }

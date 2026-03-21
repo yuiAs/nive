@@ -8,6 +8,7 @@
 
 #include <functional>
 #include <string>
+#include <vector>
 
 #include "ui/d2d/base/component.hpp"
 #include "ui/d2d/core/device_resources.hpp"
@@ -75,6 +76,7 @@ public:
     bool onKeyDown(const KeyEvent& event) override;
     bool onChar(const KeyEvent& event) override;
     void onFocusChanged(const FocusEvent& event) override;
+    [[nodiscard]] HCURSOR cursor() const override;
 
     /// @brief Create resources (call before first render)
     void createResources(DeviceResources& resources);
@@ -83,6 +85,7 @@ private:
     void insertText(const std::wstring& text);
     void deleteSelection();
     void deleteCharacter(bool forward);
+    void deleteWord(bool forward);
     void moveCaret(int delta, bool extend_selection);
     void moveCaretToWord(bool forward, bool extend_selection);
     void moveCaretToEnd(bool start, bool extend_selection);
@@ -90,12 +93,21 @@ private:
     void copyToClipboard();
     void cutToClipboard();
     void pasteFromClipboard();
+    void showContextMenu(const Point& screen_pos);
+
+    void pushUndoState();
+    void undo();
+    void redo();
 
     [[nodiscard]] size_t hitTestPosition(float x) const;
     [[nodiscard]] float getCaretX() const;
     void updateTextLayout();
     void ensureCaretVisible();
     [[nodiscard]] bool isValidInputChar(wchar_t ch) const;
+
+    // Word boundary helpers
+    [[nodiscard]] size_t findWordStart(size_t pos) const;
+    [[nodiscard]] size_t findWordEnd(size_t pos) const;
 
     [[nodiscard]] Rect getContentRect() const noexcept;
 
@@ -109,7 +121,29 @@ private:
     bool dragging_ = false;
     InputMode input_mode_ = InputMode::Text;
 
+    // Multi-click selection state
+    enum class DragMode { Character, Word };
+    DragMode drag_mode_ = DragMode::Character;
+    size_t word_anchor_start_ = 0;  // Anchor word start for word-drag mode
+    size_t word_anchor_end_ = 0;    // Anchor word end for word-drag mode
+
+    void resetCaretBlink();
+
     float scroll_offset_ = 0.0f;  // Horizontal scroll for long text
+
+    // Caret blink state
+    DWORD caret_blink_reset_time_ = 0;  // Tick count when caret was last reset
+
+    // Undo/Redo history
+    struct UndoState {
+        std::wstring text;
+        size_t caret_pos;
+        size_t selection_start;
+        size_t selection_end;
+    };
+    std::vector<UndoState> undo_stack_;
+    size_t undo_index_ = 0;  // Points to the next available undo slot
+    static constexpr size_t kMaxUndoHistory = 100;
 
     ChangeCallback on_change_;
 

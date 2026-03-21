@@ -2,8 +2,6 @@
 
 Lightweight image viewer for Windows.
 
-![Screenshot-0.2.1](docs/screenshots/0.2.1-app.jpg)
-
 ## Features
 
 - Three-pane UI: directory tree, file list, and thumbnail grid

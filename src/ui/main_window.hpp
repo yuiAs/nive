@@ -122,7 +122,7 @@ private:
     CursorHint cursor_hint_;
 
     void setCursorHintRestore(const std::vector<std::filesystem::path>& files);
-    void setCursorHintSelectPrevious(const std::vector<std::filesystem::path>& files);
+    void setCursorHintSelectNext(const std::vector<std::filesystem::path>& files);
     void applyCursorHint();
 
     // State change tracking

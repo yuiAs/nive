@@ -586,7 +586,7 @@ void MainWindow::createChildControls() {
                              const std::filesystem::path& dest_path, DWORD effect) {
         if (file_op_manager_) {
             if (effect == DROPEFFECT_MOVE) {
-                setCursorHintSelectPrevious(files);
+                setCursorHintSelectNext(files);
             } else {
                 setCursorHintRestore(files);
             }
@@ -663,7 +663,7 @@ void MainWindow::createChildControls() {
 
     file_list_->onDeleteRequested([this](const std::vector<std::filesystem::path>& files) {
         if (file_op_manager_) {
-            setCursorHintSelectPrevious(files);
+            setCursorHintSelectNext(files);
             file_op_manager_->deleteFiles(files);
         }
     });
@@ -705,7 +705,7 @@ void MainWindow::createChildControls() {
 
     grid_->onDeleteRequested([this](const std::vector<std::filesystem::path>& files) {
         if (file_op_manager_) {
-            setCursorHintSelectPrevious(files);
+            setCursorHintSelectNext(files);
             file_op_manager_->deleteFiles(files);
         }
     });
@@ -944,7 +944,7 @@ void MainWindow::setCursorHintRestore(const std::vector<std::filesystem::path>& 
     }
 }
 
-void MainWindow::setCursorHintSelectPrevious(const std::vector<std::filesystem::path>& files) {
+void MainWindow::setCursorHintSelectNext(const std::vector<std::filesystem::path>& files) {
     cursor_hint_.action = CursorHint::Action::None;
     cursor_hint_.target_names.clear();
     cursor_hint_.source_focus = GetFocus();
@@ -960,15 +960,23 @@ void MainWindow::setCursorHintSelectPrevious(const std::vector<std::filesystem::
         affected_names.push_back(f.filename().wstring());
     }
 
-    // Find the minimum index among affected files in the current file list
     const auto& current_files = App::instance().state().files();
+
+    auto isAffected = [&](size_t index) {
+        for (const auto& name : affected_names) {
+            if (current_files[index].name == name) {
+                return true;
+            }
+        }
+        return false;
+    };
+
+    // Find the minimum index among affected files
     size_t min_index = SIZE_MAX;
     for (size_t i = 0; i < current_files.size(); ++i) {
-        for (const auto& name : affected_names) {
-            if (current_files[i].name == name) {
-                min_index = (std::min)(min_index, i);
-                break;
-            }
+        if (isAffected(i)) {
+            min_index = i;
+            break;
         }
     }
 
@@ -976,28 +984,26 @@ void MainWindow::setCursorHintSelectPrevious(const std::vector<std::filesystem::
         return;
     }
 
-    if (min_index == 0) {
-        // First item affected — select the first non-affected item instead
-        for (size_t i = 0; i < current_files.size(); ++i) {
-            bool is_affected = false;
-            for (const auto& name : affected_names) {
-                if (current_files[i].name == name) {
-                    is_affected = true;
-                    break;
-                }
-            }
-            if (!is_affected) {
-                cursor_hint_.action = CursorHint::Action::SelectByName;
-                cursor_hint_.target_names.push_back(current_files[i].name);
-                return;
-            }
+    // Try to select the first non-affected item after the first affected item
+    for (size_t i = min_index + 1; i < current_files.size(); ++i) {
+        if (!isAffected(i)) {
+            cursor_hint_.action = CursorHint::Action::SelectByName;
+            cursor_hint_.target_names.push_back(current_files[i].name);
+            return;
         }
-        // All items affected — nothing to select
-        return;
     }
 
-    cursor_hint_.action = CursorHint::Action::SelectByName;
-    cursor_hint_.target_names.push_back(current_files[min_index - 1].name);
+    // All items after are affected or first affected was the last —
+    // fall back to the last non-affected item before
+    for (size_t i = min_index; i-- > 0;) {
+        if (!isAffected(i)) {
+            cursor_hint_.action = CursorHint::Action::SelectByName;
+            cursor_hint_.target_names.push_back(current_files[i].name);
+            return;
+        }
+    }
+
+    // All items affected — nothing to select
 }
 
 void MainWindow::applyCursorHint() {

@@ -58,14 +58,20 @@ std::vector<size_t> FileListView::selectedIndices() const {
 }
 
 void FileListView::setSelection(const std::vector<size_t>& indices) {
-    // Clear all selection first
-    ListView_SetItemState(hwnd_, -1, 0, LVIS_SELECTED);
+    // Clear all selection and focus first
+    ListView_SetItemState(hwnd_, -1, 0, LVIS_SELECTED | LVIS_FOCUSED);
 
     // Set new selection
     for (size_t idx : indices) {
         if (idx < items_.size()) {
             ListView_SetItemState(hwnd_, static_cast<int>(idx), LVIS_SELECTED, LVIS_SELECTED);
         }
+    }
+
+    // Set keyboard focus on the first selected item
+    if (!indices.empty() && indices.front() < items_.size()) {
+        ListView_SetItemState(hwnd_, static_cast<int>(indices.front()),
+                              LVIS_FOCUSED, LVIS_FOCUSED);
     }
 }
 

@@ -1029,9 +1029,11 @@ void MainWindow::applyCursorHint() {
         if (!indices.empty()) {
             if (grid_) {
                 grid_->setSelection(indices);
+                grid_->ensureVisible(indices.front());
             }
             if (file_list_) {
                 file_list_->setSelection(indices);
+                file_list_->ensureVisible(indices.front());
             }
             Selection sel;
             sel.indices = indices;

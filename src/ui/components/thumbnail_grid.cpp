@@ -169,6 +169,16 @@ void ThumbnailGrid::setSelection(const std::vector<size_t>& indices) {
             selected_[i] = true;
         }
     }
+
+    // Set keyboard focus and anchor to the first selected item
+    if (!indices.empty() && indices.front() < selected_.size()) {
+        focused_index_ = indices.front();
+        anchor_index_ = indices.front();
+    } else {
+        focused_index_ = SIZE_MAX;
+        anchor_index_ = SIZE_MAX;
+    }
+
     InvalidateRect(hwnd_, nullptr, FALSE);
 
     if (selection_changed_callback_) {

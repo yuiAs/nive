@@ -52,6 +52,11 @@ public:
     /// @param path Virtual path to the image
     void setImage(const archive::VirtualPath& path);
 
+    /// @brief Get the currently displayed image path
+    [[nodiscard]] const archive::VirtualPath& currentPath() const noexcept {
+        return current_path_;
+    }
+
     /// @brief Set display mode
     /// @param mode Display mode
     void setDisplayMode(config::ViewerDisplayMode mode);

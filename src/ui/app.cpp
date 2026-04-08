@@ -300,6 +300,28 @@ void App::loadDirectory(const std::filesystem::path& path) {
         }
 
         state_->setFiles(std::move(result->entries));
+
+        // If the Image Viewer is showing a file that no longer exists in the
+        // current directory (e.g. it was deleted from the Main Window's File
+        // List or Thumbnail Grid), close the viewer. Without this hook, the
+        // viewer would keep displaying a stale decoded image of a file that
+        // was just deleted.
+        if (viewer_window_ && viewer_window_->isVisible()) {
+            const auto& shown = viewer_window_->currentPath();
+            if (!shown.empty() && !shown.is_in_archive()) {
+                const auto shown_name = shown.filename();
+                bool still_present = false;
+                for (const auto& f : state_->files()) {
+                    if (f.name == shown_name) {
+                        still_present = true;
+                        break;
+                    }
+                }
+                if (!still_present) {
+                    viewer_window_->close();
+                }
+            }
+        }
     }
 }
 

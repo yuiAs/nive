@@ -70,22 +70,22 @@ std::expected<std::string, StringError> wideToUtf8(std::wstring_view wide) {
     return result;
 }
 
-std::wstring utf8ToWide_or_empty(std::string_view utf8) {
+std::wstring utf8ToWideOrEmpty(std::string_view utf8) {
     auto result = utf8ToWide(utf8);
     return result ? *result : std::wstring{};
 }
 
-std::string wideToUtf8_or_empty(std::wstring_view wide) {
+std::string wideToUtf8OrEmpty(std::wstring_view wide) {
     auto result = wideToUtf8(wide);
     return result ? *result : std::string{};
 }
 
 std::string pathToUtf8(const std::filesystem::path& path) {
-    return wideToUtf8_or_empty(path.native());
+    return wideToUtf8OrEmpty(path.native());
 }
 
 std::filesystem::path utf8ToPath(std::string_view utf8) {
-    return std::filesystem::path(utf8ToWide_or_empty(utf8));
+    return std::filesystem::path(utf8ToWideOrEmpty(utf8));
 }
 
 std::string toLowercaseAscii(std::string_view str) {

@@ -342,6 +342,13 @@ LRESULT ThumbnailGrid::handleMessage(UINT msg, WPARAM wParam, LPARAM lParam) {
         }
         return 0;
 
+    case WM_SETFOCUS:
+        if (focus_received_callback_) {
+            focus_received_callback_();
+        }
+        InvalidateRect(hwnd_, nullptr, FALSE);
+        return 0;
+
     case WM_KILLFOCUS:
         cancelPendingInlineEdit();
         cancelInlineEdit();

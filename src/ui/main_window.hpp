@@ -71,6 +71,16 @@ public:
     /// @brief Update status bar from current application state
     void updateStatusBar();
 
+    /// @brief Set a cursor hint to select the next item after the given files are removed.
+    /// @param files Files about to be deleted/moved
+    ///
+    /// Call this *before* invoking a file operation that mutates the current
+    /// directory listing. After the resulting directory refresh, applyCursorHint()
+    /// will move keyboard focus and selection to the first remaining item past
+    /// the deleted range, falling back to the previous item when the deletion
+    /// occurred at the end of the list.
+    void setCursorHintSelectNext(const std::vector<std::filesystem::path>& files);
+
 private:
     static LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
     LRESULT handleMessage(UINT msg, WPARAM wParam, LPARAM lParam);
@@ -117,16 +127,23 @@ private:
         enum class Action { None, RestoreByName, SelectByName };
         Action action = Action::None;
         std::vector<std::wstring> target_names;
-        HWND source_focus = nullptr;  // Window that had focus before the operation
     };
     CursorHint cursor_hint_;
 
     void setCursorHintRestore(const std::vector<std::filesystem::path>& files);
-    void setCursorHintSelectNext(const std::vector<std::filesystem::path>& files);
     void applyCursorHint();
 
     // State change tracking
     bool directory_changed_ = false;
+
+    // Last child pane that held keyboard focus. MainWindow is a pure
+    // container and must not hold keyboard focus itself, otherwise the
+    // thumbnail grid / file list stop receiving arrow keys. When MainWindow
+    // receives WM_SETFOCUS (e.g. after the Shell file operation progress
+    // UI dismisses and Windows reactivates the top-level window), it
+    // forwards focus to this pane. Updated via focus callbacks registered
+    // on grid_ and file_list_.
+    HWND last_focused_pane_ = nullptr;
 
     // Layout - vertical splitter (left-right)
     int vsplitter_pos_ = 250;

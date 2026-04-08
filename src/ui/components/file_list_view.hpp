@@ -33,6 +33,7 @@ public:
     using SelectionChangedCallback = std::function<void(const std::vector<size_t>&)>;
     using SortChangedCallback = std::function<void(FileListColumn column, bool ascending)>;
     using DeleteRequestedCallback = std::function<void(const std::vector<std::filesystem::path>&)>;
+    using FocusReceivedCallback = std::function<void()>;
 
     FileListView();
     ~FileListView();
@@ -110,6 +111,12 @@ public:
         delete_requested_callback_ = std::move(callback);
     }
 
+    /// @brief Invoked when the list receives keyboard focus (via NM_SETFOCUS).
+    /// Used by the parent to remember which pane was most recently active.
+    void onFocusReceived(FocusReceivedCallback callback) {
+        focus_received_callback_ = std::move(callback);
+    }
+
     /// @brief Get file paths for selected items
     /// @return List of file paths (excludes archive entries)
     [[nodiscard]] std::vector<std::filesystem::path> selectedFilePaths() const;
@@ -137,6 +144,7 @@ private:
     SelectionChangedCallback selection_changed_callback_;
     SortChangedCallback sort_changed_callback_;
     DeleteRequestedCallback delete_requested_callback_;
+    FocusReceivedCallback focus_received_callback_;
 };
 
 }  // namespace nive::ui

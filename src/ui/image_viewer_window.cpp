@@ -16,6 +16,7 @@
 #include "core/util/string_utils.hpp"
 #include "d2d/core/bitmap_utils.hpp"
 #include "file_operation_manager.hpp"
+#include "main_window.hpp"
 
 namespace nive::ui {
 
@@ -976,6 +977,14 @@ void ImageViewerWindow::deleteCurrentImage() {
                 }
             }
         }
+    }
+
+    // Notify MainWindow so that after the directory refresh, keyboard focus
+    // and selection in the thumbnail grid / file list land on a sensible
+    // neighbor of the deleted file rather than being lost or snapping to
+    // the head of the grid.
+    if (auto* mw = App::instance().mainWindow()) {
+        mw->setCursorHintSelectNext({file_path});
     }
 
     // Delete with confirmation dialog

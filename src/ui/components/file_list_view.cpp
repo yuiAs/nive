@@ -153,6 +153,15 @@ void FileListView::refresh() {
 
 bool FileListView::handleNotify(NMHDR* nmhdr) {
     switch (nmhdr->code) {
+    case NM_SETFOCUS:
+        // The native ListView sends NM_SETFOCUS through WM_NOTIFY whenever
+        // it gains keyboard focus. Relay this to the parent so it can
+        // remember which pane is currently active.
+        if (focus_received_callback_) {
+            focus_received_callback_();
+        }
+        return true;
+
     case NM_DBLCLK: {
         auto* nmia = reinterpret_cast<NMITEMACTIVATE*>(nmhdr);
         if (nmia->iItem >= 0 && item_activated_callback_) {

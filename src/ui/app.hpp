@@ -76,6 +76,9 @@ public:
     /// @brief Get main window handle
     [[nodiscard]] HWND mainHwnd() const noexcept;
 
+    /// @brief Get main window
+    [[nodiscard]] MainWindow* mainWindow() noexcept { return main_window_.get(); }
+
     /// @brief Get application instance handle
     [[nodiscard]] HINSTANCE hinstance() const noexcept { return hinstance_; }
 

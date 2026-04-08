@@ -229,6 +229,33 @@ LRESULT CALLBACK MainWindow::WindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
 }
 
 LRESULT MainWindow::handleMessage(UINT msg, WPARAM wParam, LPARAM lParam) {
+    // MainWindow is a container and must never hold keyboard focus itself.
+    // Windows can end up targeting the top-level HWND in several situations:
+    //  - Shell IFileOperation progress UI briefly takes foreground during a
+    //    delete/move, and when control returns Windows reactivates the app
+    //    by sending WM_ACTIVATE/WM_SETFOCUS to the top-level, not the child
+    //    that originally had focus.
+    //  - A child top-level (Image Viewer) closes, triggering an activation
+    //    cycle that lands on MainWindow itself.
+    // In both cases the user sees the selection highlight but loses arrow
+    // key handling because the grid / list never regained Win32 focus. We
+    // forward WM_SETFOCUS back to the most recently active pane (falling
+    // back to the thumbnail grid on first load) to keep keyboard navigation
+    // alive without requiring an extra click.
+    if (msg == WM_SETFOCUS) {
+        HWND target = last_focused_pane_;
+        if (!target || !IsWindow(target)) {
+            target = grid_ ? grid_->hwnd() : nullptr;
+            if (!target) {
+                target = file_list_ ? file_list_->hwnd() : nullptr;
+            }
+        }
+        if (target && target != hwnd_) {
+            SetFocus(target);
+            return 0;
+        }
+    }
+
     switch (msg) {
     case WM_CREATE:
         onCreate();
@@ -251,6 +278,7 @@ LRESULT MainWindow::handleMessage(UINT msg, WPARAM wParam, LPARAM lParam) {
         saveState(App::instance().settings());
         DestroyWindow(hwnd_);
         return 0;
+
 
     case WM_COMMAND:
         onCommand(LOWORD(wParam));
@@ -668,6 +696,10 @@ void MainWindow::createChildControls() {
         }
     });
 
+    file_list_->onFocusReceived([this]() {
+        last_focused_pane_ = file_list_ ? file_list_->hwnd() : nullptr;
+    });
+
     // Create thumbnail grid
     grid_ = std::make_unique<ThumbnailGrid>();
     grid_->create(hwnd_, hinstance_, kIdThumbnailGrid);
@@ -708,6 +740,10 @@ void MainWindow::createChildControls() {
             setCursorHintSelectNext(files);
             file_op_manager_->deleteFiles(files);
         }
+    });
+
+    grid_->onFocusReceived([this]() {
+        last_focused_pane_ = grid_ ? grid_->hwnd() : nullptr;
     });
 
     grid_->onRenameRequested([this](size_t index, const std::wstring& new_name) {
@@ -937,7 +973,6 @@ void MainWindow::drawSplitters(HDC hdc) {
 void MainWindow::setCursorHintRestore(const std::vector<std::filesystem::path>& files) {
     cursor_hint_.action = CursorHint::Action::RestoreByName;
     cursor_hint_.target_names.clear();
-    cursor_hint_.source_focus = GetFocus();
     cursor_hint_.target_names.reserve(files.size());
     for (const auto& f : files) {
         cursor_hint_.target_names.push_back(f.filename().wstring());
@@ -947,7 +982,6 @@ void MainWindow::setCursorHintRestore(const std::vector<std::filesystem::path>& 
 void MainWindow::setCursorHintSelectNext(const std::vector<std::filesystem::path>& files) {
     cursor_hint_.action = CursorHint::Action::None;
     cursor_hint_.target_names.clear();
-    cursor_hint_.source_focus = GetFocus();
 
     if (files.empty()) {
         return;
@@ -1058,17 +1092,9 @@ void MainWindow::applyCursorHint() {
         }
     }
 
-    // Restore keyboard focus to the window that initiated the operation.
-    // File operations (delete dialog, IFileOperation progress) may have
-    // moved Win32 focus away from the originating view.
-    if (cursor_hint_.source_focus && IsWindow(cursor_hint_.source_focus)) {
-        SetFocus(cursor_hint_.source_focus);
-    }
-
     // Clear the hint
     cursor_hint_.action = CursorHint::Action::None;
     cursor_hint_.target_names.clear();
-    cursor_hint_.source_focus = nullptr;
 }
 
 void MainWindow::updateSortMenu() {

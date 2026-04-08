@@ -36,6 +36,7 @@ public:
     using DragStartCallback = std::function<void(const std::vector<std::filesystem::path>&)>;
     using DeleteRequestedCallback = std::function<void(const std::vector<std::filesystem::path>&)>;
     using RenameRequestedCallback = std::function<void(size_t index, const std::wstring& new_name)>;
+    using FocusReceivedCallback = std::function<void()>;
 
     ThumbnailGrid();
     ~ThumbnailGrid();
@@ -113,6 +114,14 @@ public:
 
     void onRenameRequested(RenameRequestedCallback callback) {
         rename_requested_callback_ = std::move(callback);
+    }
+
+    /// @brief Invoked when the grid receives keyboard focus. Used by the
+    /// parent window to remember which pane was most recently active, so it
+    /// can forward its own WM_SETFOCUS back to the correct child after an
+    /// activation cycle triggered by file operation progress UI.
+    void onFocusReceived(FocusReceivedCallback callback) {
+        focus_received_callback_ = std::move(callback);
     }
 
     /// @brief Get file paths for selected items
@@ -217,6 +226,7 @@ private:
     DragStartCallback drag_start_callback_;
     DeleteRequestedCallback delete_requested_callback_;
     RenameRequestedCallback rename_requested_callback_;
+    FocusReceivedCallback focus_received_callback_;
 
     // Inline rename state
     std::unique_ptr<d2d::D2DEditBox> inline_edit_;

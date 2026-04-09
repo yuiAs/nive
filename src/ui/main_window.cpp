@@ -17,6 +17,7 @@
 #include "core/fs/file_operations.hpp"
 #include "core/i18n/i18n.hpp"
 #include "core/thumbnail/thumbnail_request.hpp"
+#include "d2d/dialog/about/d2d_about_dialog.hpp"
 #include "d2d/dialog/settings/d2d_settings_dialog.hpp"
 #include "file_operation_manager.hpp"
 #ifdef NIVE_DEBUG_D2D_TEST
@@ -506,7 +507,7 @@ void MainWindow::onCommand(WORD id) {
 #endif
 
     case kIdHelpAbout:
-        // TODO: Show About dialog
+        d2d::showD2DAboutDialog(hwnd_);
         break;
     }
 }

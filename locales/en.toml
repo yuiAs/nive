@@ -139,6 +139,11 @@ invalid_settings = "Invalid settings:\n"
 error_prefix = "- "
 title = "Validation Error"
 
+# About dialog
+[dialog.about]
+title = "About nive"
+ok = "OK"
+
 # Delete confirmation dialog
 [dialog.delete]
 title = "Confirm Delete"

@@ -448,14 +448,6 @@ void MainWindow::onCommand(WORD id) {
         PostMessageW(hwnd_, WM_CLOSE, 0, 0);
         break;
 
-    case kIdViewThumbnails:
-        // TODO: Switch to thumbnail view mode
-        break;
-
-    case kIdViewDetails:
-        // TODO: Switch to details view mode
-        break;
-
     // Sort Method
     case kIdSortNatural:
         settings.sort.method = config::SortMethod::Natural;
@@ -512,6 +504,10 @@ void MainWindow::onCommand(WORD id) {
         d2d::showD2DTestDialog(hwnd_);
         break;
 #endif
+
+    case kIdHelpAbout:
+        // TODO: Show About dialog
+        break;
     }
 }
 
@@ -531,10 +527,6 @@ void MainWindow::createMenu() {
 
     // View menu
     HMENU view_menu = CreatePopupMenu();
-    AppendMenuW(view_menu, MF_STRING, kIdViewThumbnails, tr("menu.view.thumbnails").c_str());
-    AppendMenuW(view_menu, MF_STRING, kIdViewDetails, tr("menu.view.details").c_str());
-    AppendMenuW(view_menu, MF_SEPARATOR, 0, nullptr);
-
     // Sort Method submenu
     HMENU sort_method_menu = CreatePopupMenu();
     AppendMenuW(sort_method_menu, MF_STRING, kIdSortNatural,
@@ -566,7 +558,9 @@ void MainWindow::createMenu() {
     HMENU help_menu = CreatePopupMenu();
 #ifdef NIVE_DEBUG_D2D_TEST
     AppendMenuW(help_menu, MF_STRING, kIdDebugD2DTest, tr("menu.help.d2d_test").c_str());
+    AppendMenuW(help_menu, MF_SEPARATOR, 0, nullptr);
 #endif
+    AppendMenuW(help_menu, MF_STRING, kIdHelpAbout, tr("menu.help.about").c_str());
     AppendMenuW(menu_, MF_POPUP, reinterpret_cast<UINT_PTR>(help_menu),
                 tr("menu.help.label").c_str());
 

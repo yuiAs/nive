@@ -540,6 +540,10 @@ void ImageViewerWindow::onKeyDown(WPARAM vk) {
         fitToWindow();
         break;
 
+    case 'S':
+        setDisplayMode(config::ViewerDisplayMode::ShrinkToFit);
+        break;
+
     case '1':
         zoomReset();
         break;

@@ -166,8 +166,6 @@ private:
     static constexpr WORD kIdFileSettings = 1001;
     static constexpr WORD kIdFileRefresh = 1002;
     static constexpr WORD kIdFileExit = 1003;
-    static constexpr WORD kIdViewThumbnails = 1101;
-    static constexpr WORD kIdViewDetails = 1102;
     // Sort Method submenu
     static constexpr WORD kIdSortNatural = 1201;
     static constexpr WORD kIdSortLexicographic = 1202;
@@ -178,8 +176,10 @@ private:
     static constexpr WORD kIdSortAscending = 1211;
     static constexpr WORD kIdSortDescending = 1212;
 
+    // Help menu
+    static constexpr WORD kIdHelpAbout = 1301;
+
 #ifdef NIVE_DEBUG_D2D_TEST
-    // Help menu (Debug builds only)
     static constexpr WORD kIdDebugD2DTest = 9001;
 #endif
 

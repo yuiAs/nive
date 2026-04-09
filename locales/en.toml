@@ -9,8 +9,6 @@ exit = "E&xit\tAlt+F4"
 
 [menu.view]
 label = "&View"
-thumbnails = "&Thumbnails"
-details = "&Details"
 
 [menu.view.sort_method]
 label = "Sort &Method"
@@ -27,6 +25,7 @@ descending = "&Descending"
 
 [menu.help]
 label = "&Help"
+about = "&About...\tF1"
 d2d_test = "D2D &Test Dialog...\tCtrl+Shift+D"
 
 # Image viewer window
@@ -45,8 +44,8 @@ exit = "E&xit\tEsc"
 label = "&View"
 display_mode = "&Display Mode"
 original = "&Original\t1"
-fit_to_window = "&Fit to Window"
-shrink_to_fit = "&Shrink to Fit\tF"
+fit_to_window = "&Fit to Window\tF"
+shrink_to_fit = "&Shrink to Fit\tS"
 zoom_in = "Zoom &In\tCtrl++"
 zoom_out = "Zoom &Out\tCtrl+-"
 reset_zoom = "&Reset Zoom\t0"

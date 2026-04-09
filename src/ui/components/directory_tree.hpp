@@ -114,10 +114,24 @@ private:
                                          UINT_PTR subclass_id, DWORD_PTR ref_data);
     void updateHotItem(HTREEITEM new_item);
 
+    // Drag-hover auto-expand support (Explorer-like behavior)
+    void maybeAutoExpandOnHover(HTREEITEM item);
+    void onHoverExpandTimer();
+    void resetHoverExpandState();
+    static void CALLBACK hoverExpandTimerCallback(PVOID param, BOOLEAN timer_or_wait_fired);
+
+    static constexpr UINT kWmHoverExpand = WM_APP + 42;
+    static constexpr DWORD kDragHoverExpandDelayMs = 2500;
+
     HWND hwnd_ = nullptr;
     HIMAGELIST image_list_ = nullptr;
     HTREEITEM hot_item_ = nullptr;
     HBRUSH hover_brush_ = nullptr;
+
+    // Drag-hover auto-expand state
+    HTREEITEM hover_expand_item_ = nullptr;
+    bool hover_expand_triggered_ = false;
+    HANDLE hover_expand_timer_ = nullptr;
 
     std::unordered_map<HTREEITEM, std::filesystem::path> item_paths_;
     std::unordered_set<HTREEITEM> archive_items_;

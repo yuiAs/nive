@@ -18,6 +18,12 @@ namespace nive::ui {
 DirectoryTree::DirectoryTree() = default;
 
 DirectoryTree::~DirectoryTree() {
+    // Wait for any pending timer pool callback before removing subclass,
+    // so the callback cannot PostMessage after our handler is gone.
+    if (hover_expand_timer_) {
+        DeleteTimerQueueTimer(nullptr, hover_expand_timer_, INVALID_HANDLE_VALUE);
+        hover_expand_timer_ = nullptr;
+    }
     if (hwnd_) {
         RemoveWindowSubclass(hwnd_, subclassProc, 0);
     }
@@ -276,6 +282,9 @@ LRESULT CALLBACK DirectoryTree::subclassProc(HWND hwnd, UINT msg, WPARAM wParam,
         // flash of hover background + selection text color
         self->updateHotItem(nullptr);
         break;
+    case kWmHoverExpand:
+        self->onHoverExpandTimer();
+        return 0;
     }
 
     return DefSubclassProc(hwnd, msg, wParam, lParam);
@@ -310,6 +319,77 @@ void DirectoryTree::updateHotItem(HTREEITEM new_item) {
             InvalidateRect(hwnd_, &rc, TRUE);
         }
     }
+}
+
+void DirectoryTree::maybeAutoExpandOnHover(HTREEITEM item) {
+    // Same item as before — nothing to do (timer is already running, or
+    // we've already expanded it).
+    if (item == hover_expand_item_) {
+        return;
+    }
+
+    // Cursor moved to a different item (or left the tree). Cancel the
+    // pending timer and start fresh for the new target.
+    if (hover_expand_timer_) {
+        DeleteTimerQueueTimer(nullptr, hover_expand_timer_, nullptr);
+        hover_expand_timer_ = nullptr;
+    }
+
+    hover_expand_item_ = item;
+    hover_expand_triggered_ = false;
+
+    if (!item) {
+        return;
+    }
+
+    // Start a one-shot timer on the thread pool. The callback fires on a
+    // worker thread and PostMessages kWmHoverExpand to the UI thread.
+    // This works even during OLE drag-drop, where WM_TIMER may not be
+    // dispatched to the TreeView.
+    CreateTimerQueueTimer(&hover_expand_timer_, nullptr, hoverExpandTimerCallback, this,
+                          kDragHoverExpandDelayMs, 0, WT_EXECUTEONLYONCE);
+}
+
+void CALLBACK DirectoryTree::hoverExpandTimerCallback(PVOID param, BOOLEAN /*timer_or_wait_fired*/) {
+    auto* self = static_cast<DirectoryTree*>(param);
+    PostMessage(self->hwnd(), kWmHoverExpand, 0, 0);
+}
+
+void DirectoryTree::onHoverExpandTimer() {
+    if (!hover_expand_item_ || hover_expand_triggered_) {
+        return;
+    }
+
+    hover_expand_triggered_ = true;
+
+    // Skip genuine leaves (archive files, empty directories). Check cChildren
+    // rather than TreeView_GetChild(), because never-expanded items have
+    // cChildren=1 (the [+] hint) but no actual child HTREEITEM yet.
+    TVITEMW tvi = {};
+    tvi.hItem = hover_expand_item_;
+    tvi.mask = TVIF_CHILDREN;
+    TreeView_GetItem(hwnd_, &tvi);
+    if (tvi.cChildren == 0) {
+        return;
+    }
+
+    // Skip items that are already expanded.
+    if (TreeView_GetItemState(hwnd_, hover_expand_item_, TVIS_EXPANDED) & TVIS_EXPANDED) {
+        return;
+    }
+
+    // Expand the item. TVN_ITEMEXPANDING is fired and routed through
+    // handleNotify() -> expandItem() -> populateChildren() for lazy loading.
+    TreeView_Expand(hwnd_, hover_expand_item_, TVE_EXPAND);
+}
+
+void DirectoryTree::resetHoverExpandState() {
+    if (hover_expand_timer_) {
+        DeleteTimerQueueTimer(nullptr, hover_expand_timer_, nullptr);
+        hover_expand_timer_ = nullptr;
+    }
+    hover_expand_item_ = nullptr;
+    hover_expand_triggered_ = false;
 }
 
 LRESULT DirectoryTree::handleNotify(NMHDR* nmhdr) {
@@ -599,12 +679,16 @@ void DirectoryTree::setupDropTarget() {
             hit_item = nullptr;
         }
         updateHotItem(hit_item);
+        maybeAutoExpandOnHover(hit_item);
 
         return getPathAtPoint(screen_pt);
     };
 
     drop_target_ = new DropTarget(hwnd_, on_drop, get_drop_path);
-    drop_target_->onDragEnd([this]() { updateHotItem(nullptr); });
+    drop_target_->onDragEnd([this]() {
+        updateHotItem(nullptr);
+        resetHoverExpandState();
+    });
     drop_target_->registerTarget();
 }
 

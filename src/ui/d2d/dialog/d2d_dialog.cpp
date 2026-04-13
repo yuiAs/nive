@@ -113,7 +113,7 @@ bool D2DDialog::createWindow(HWND parent) {
         }
     }
 
-    float dpi_scale = static_cast<float>(dpi) / 72.0f;
+    float dpi_scale = static_cast<float>(dpi) / 96.0f;
 
     // Calculate window size from client size
     RECT rc = {0, 0, static_cast<LONG>(initial_size_.width * dpi_scale),
@@ -246,7 +246,7 @@ LRESULT D2DDialog::handleMessage(UINT msg, WPARAM wParam, LPARAM lParam) {
     case WM_GETMINMAXINFO: {
         if (resizable_) {
             auto mmi = reinterpret_cast<MINMAXINFO*>(lParam);
-            float dpi_scale = device_resources_.dpiX() / 72.0f;
+            float dpi_scale = device_resources_.dpiX() / 96.0f;
             mmi->ptMinTrackSize.x = static_cast<LONG>(min_size_.width * dpi_scale);
             mmi->ptMinTrackSize.y = static_cast<LONG>(min_size_.height * dpi_scale);
         }

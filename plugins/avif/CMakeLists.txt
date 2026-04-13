@@ -25,16 +25,20 @@ endif()
 # ---------------------------------------------------------------------------
 include("${CMAKE_CURRENT_SOURCE_DIR}/PatchAomNasm.cmake")
 
-# libaom v3.12.1 — same version used by libavif v1.3.0
+# libaom v3.13.3
 # SOURCE_SUBDIR set to nonexistent path to download only (skip add_subdirectory)
 FetchContent_Declare(
     libaom_patch
-    URL "https://aomedia.googlesource.com/aom/+archive/v3.12.1.tar.gz"
+    URL "https://aomedia.googlesource.com/aom/+archive/v3.13.3.tar.gz"
     SOURCE_SUBDIR _download_only
 )
 FetchContent_MakeAvailable(libaom_patch)
 patch_aom_nasm_detection("${libaom_patch_SOURCE_DIR}")
+patch_aom_skip_install("${libaom_patch_SOURCE_DIR}")
 set(FETCHCONTENT_SOURCE_DIR_LIBAOM "${libaom_patch_SOURCE_DIR}" CACHE PATH "" FORCE)
+
+# Skip libaom install rules (absolute INTERFACE paths conflict with CMake 4.x export validation)
+set(AOM_SKIP_INSTALL ON CACHE BOOL "" FORCE)
 
 # ---------------------------------------------------------------------------
 # libavif via FetchContent (v1.3.0)

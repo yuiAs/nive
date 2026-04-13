@@ -3,6 +3,8 @@
 
 #include "main_window.hpp"
 
+#include "resource.h"
+
 #include <CommCtrl.h>
 #include <ShlObj.h>
 #include <windowsx.h>
@@ -54,8 +56,8 @@ bool MainWindow::create(HINSTANCE hInstance) {
     wc.hCursor = LoadCursor(nullptr, IDC_ARROW);
     wc.hbrBackground = reinterpret_cast<HBRUSH>(COLOR_BTNFACE + 1);
     wc.lpszClassName = kWindowClass;
-    wc.hIcon = LoadIcon(nullptr, IDI_APPLICATION);
-    wc.hIconSm = LoadIcon(nullptr, IDI_APPLICATION);
+    wc.hIcon = LoadIcon(hInstance, MAKEINTRESOURCE(IDI_APP_ICON));
+    wc.hIconSm = LoadIcon(hInstance, MAKEINTRESOURCE(IDI_APP_ICON));
 
     if (!RegisterClassExW(&wc)) {
         return false;

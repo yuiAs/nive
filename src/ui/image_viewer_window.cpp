@@ -3,6 +3,8 @@
 
 #include "image_viewer_window.hpp"
 
+#include "resource.h"
+
 #include <CommCtrl.h>
 #include <windowsx.h>
 
@@ -50,8 +52,8 @@ bool ImageViewerWindow::create(HINSTANCE hInstance) {
         wc.hCursor = LoadCursor(nullptr, IDC_ARROW);
         wc.hbrBackground = nullptr;  // D2D handles painting
         wc.lpszClassName = kWindowClass;
-        wc.hIcon = LoadIcon(nullptr, IDI_APPLICATION);
-        wc.hIconSm = LoadIcon(nullptr, IDI_APPLICATION);
+        wc.hIcon = LoadIcon(hInstance, MAKEINTRESOURCE(IDI_APP_ICON));
+        wc.hIconSm = LoadIcon(hInstance, MAKEINTRESOURCE(IDI_APP_ICON));
 
         if (!RegisterClassExW(&wc)) {
             return false;

@@ -3,6 +3,7 @@
 
 add_executable(nive WIN32
     main.cpp
+    "${CMAKE_SOURCE_DIR}/resources/nive.rc"
 )
 
 target_link_libraries(nive

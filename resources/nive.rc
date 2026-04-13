@@ -1,0 +1,6 @@
+// nive.rc - Win32 resource script
+
+#include "resource.h"
+
+// Application icon (lowest ID = Explorer shell icon)
+IDI_APP_ICON ICON "icons/nive.ico"

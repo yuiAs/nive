@@ -147,6 +147,14 @@ function New-Package {
     # LICENSE
     Copy-Item (Join-Path $ProjectRoot "LICENSE") $stagingDir
 
+    # Third-party licenses
+    $licensesDir = Join-Path $ProjectRoot "licenses"
+    if (Test-Path $licensesDir) {
+        Copy-Item $licensesDir -Destination (Join-Path $stagingDir "licenses") -Recurse
+    } else {
+        Write-Host "[warn] licenses directory not found at: $licensesDir" -ForegroundColor Yellow
+    }
+
     # README.md
     Copy-Item (Join-Path $ProjectRoot "README.md") $stagingDir
 
@@ -176,6 +184,9 @@ try {
     if (-not $SkipBuild) {
         Invoke-Build
     }
+
+    # Collect third-party licenses (requires build artifacts for FetchContent deps)
+    & "$ProjectRoot/scripts/collect-licenses.ps1"
 
     New-Package
 } finally {

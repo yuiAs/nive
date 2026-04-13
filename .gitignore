@@ -3,6 +3,7 @@ build/
 build-compdb/
 out/
 dist/
+licenses/
 
 CMakeLists.txt.user
 CMakeCache.txt

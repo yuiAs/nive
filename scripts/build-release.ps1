@@ -13,15 +13,21 @@
 .PARAMETER SkipBuild
     Skip the build step and package from existing build output.
 
+.PARAMETER CreateMsix
+    Also produce an MSIX package (in addition to the ZIP archive).
+    Disabled by default.
+
 .EXAMPLE
     ./scripts/build-release.ps1
     ./scripts/build-release.ps1 -OutputDir artifacts
+    ./scripts/build-release.ps1 -CreateMsix
 #>
 
 [CmdletBinding()]
 param(
     [string]$OutputDir = "dist",
-    [switch]$SkipBuild
+    [switch]$SkipBuild,
+    [switch]$CreateMsix
 )
 
 Set-StrictMode -Version Latest
@@ -168,10 +174,14 @@ function New-Package {
     if (Test-Path $archivePath) { Remove-Item $archivePath -Force }
     Compress-Archive -Path $stagingDir -DestinationPath $archivePath
 
-    # Clean staging
-    Remove-Item $stagingDir -Recurse -Force
-
     Write-Host "[done] Package created: $archivePath" -ForegroundColor Green
+
+    # Return staging info so the caller can drive MSIX packaging and clean up
+    return [pscustomobject]@{
+        StagingDir = $stagingDir
+        Version    = $version
+        OutputDir  = $outDir
+    }
 }
 
 # ---------------------------------------------------------------------------
@@ -188,7 +198,21 @@ try {
     # Collect third-party licenses (requires build artifacts for FetchContent deps)
     & "$ProjectRoot/scripts/collect-licenses.ps1"
 
-    New-Package
+    $packageInfo = New-Package
+
+    if ($CreateMsix) {
+        Write-Host "[info] Creating MSIX package..." -ForegroundColor Cyan
+        & "$ProjectRoot/scripts/create-msix.ps1" `
+            -StagingDir $packageInfo.StagingDir `
+            -OutputDir  $packageInfo.OutputDir `
+            -Version    $packageInfo.Version
+        if ($LASTEXITCODE -ne 0) { throw "MSIX creation failed." }
+    }
+
+    # Clean staging now that all packages are produced
+    if (Test-Path $packageInfo.StagingDir) {
+        Remove-Item $packageInfo.StagingDir -Recurse -Force
+    }
 } finally {
     Pop-Location
 }

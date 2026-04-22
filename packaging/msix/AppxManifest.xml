@@ -29,6 +29,17 @@
 
   <Dependencies>
     <TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.17763.0" MaxVersionTested="10.0.26100.0" />
+    <!--
+      Visual C++ 2015-2022 Redistributable (x64), delivered as a Microsoft Store
+      framework package. Declaring this dependency satisfies Store policy
+      10.2.4.1 (Software Dependencies): the Store installs the runtime
+      automatically before activating nive, so the user never sees a missing-DLL
+      error. MinVersion here should be >= the CRT version the binaries are
+      built against; bump it when upgrading the Visual Studio toolchain.
+    -->
+    <PackageDependency Name="Microsoft.VCLibs.140.00"
+                       MinVersion="14.0.30035.0"
+                       Publisher="CN=Microsoft Corporation, O=Microsoft Corporation, L=Redmond, S=Washington, C=US" />
   </Dependencies>
 
   <Resources>
